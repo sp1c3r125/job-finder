@@ -28,7 +28,8 @@ def fetch(http, cfg, log=None):
                 restr = [r.get("name", "") if isinstance(r, dict) else str(r) for r in j.get("locationRestrictions") or []]
                 loc = "Worldwide" if not restr else ", ".join(restr)     # empty list means worldwide
                 jobs.append(Job("himalayas", j["guid"], j["companyName"], j["title"], j["applicationLink"],
-                                to_iso(j.get("pubDate")), loc, True, html_to_text(j.get("description", ""))))
+                                to_iso(j.get("pubDate")), loc, True, html_to_text(j.get("description", "")),
+                                expires=to_iso(j.get("expiryDate"))))
             # sorted by recent: once a whole page is older than the window, later pages are too
             if all(datetime.fromisoformat(to_iso(j.get("pubDate")) or "1970-01-01T00:00:00+00:00") < cutoff for j in batch):
                 break

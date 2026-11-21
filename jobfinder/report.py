@@ -4,6 +4,8 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
+from . import db
+
 COLUMNS = ["Source", "Company", "Title", "Link", "Posted", "Location rule", "Score",
            "Evidence", "Gaps", "Deal-breakers", "Draft", "Resume", "Summary"]
 SOURCE_LABELS = {"greenhouse": "Greenhouse", "lever": "Lever", "ashby": "Ashby",
@@ -11,10 +13,10 @@ SOURCE_LABELS = {"greenhouse": "Greenhouse", "lever": "Lever", "ashby": "Ashby",
 
 
 def rows(con):
-    cur = con.execute("SELECT source,company,title,url,posted,rule,score_json,draft_path,also_seen_on,resume_path "
-                      "FROM jobs WHERE score_json IS NOT NULL")
     out = []
-    for source, company, title, url, posted, rule, sj, draft, also, resume in cur:
+    for r in db.scored_jobs(con):
+        source, company, title, url, posted, rule = r["source"], r["company"], r["title"], r["url"], r["posted"], r["rule"]
+        sj, draft, also, resume = r["score_json"], r["draft_path"], r["also_seen_on"], r["resume_path"]
         s = json.loads(sj)
         names = [SOURCE_LABELS.get(x, x) for x in [source] + json.loads(also or "[]")]
         out.append(dict(source=names[0], sources=", ".join(names), source_key=source, company=company,

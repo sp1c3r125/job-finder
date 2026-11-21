@@ -13,3 +13,4 @@ class Job:
     remote: bool | None    # True / False / None if unknown
     description: str       # plain text
     also_seen_on: list = field(default_factory=list)
+    expires: str = ""      # ISO 8601 UTC; "" if the source gives none (Himalayas gives expiryDate)

@@ -181,12 +181,13 @@ def test_tailor_retry_and_files(tmp_path, logs, facts):
 
 # --- daily run and commands -----------------------------------------------------------------------------------
 
-def test_old_db_gets_resume_column(tmp_path):
+def test_old_db_gets_score_table(tmp_path):
+    # resume_path moved from jobs to job_scores in the M1 schema split (see tests/test_db.py for the data migration)
     con = sqlite3.connect(tmp_path / "old.db")
     con.execute("CREATE TABLE jobs (source TEXT, source_id TEXT, PRIMARY KEY (source, source_id))")
     con.close()
-    cols = {r[1] for r in db.connect(tmp_path / "old.db").execute("PRAGMA table_info(jobs)")}
-    assert "resume_path" in cols
+    got = db.connect(str(tmp_path / "old.db"))
+    assert {r[1] for r in got.execute("PRAGMA table_info(job_scores)")} >= {"score_json", "draft_path", "resume_path"}
 
 
 def test_daily_run_reads_dropped_resume_then_tailors(tmp_path, monkeypatch):
