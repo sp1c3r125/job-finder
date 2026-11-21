@@ -8,7 +8,7 @@
 <p><a href="{{ r.url }}">Open the original posting</a>
   {% if r.draft %} · <a href="/files/{{ r.draft|fileurl }}">Cover note draft</a>{% endif %}
   {% if r.resume %} · <a href="/files/{{ r.resume|fileurl }}">Tailored resume</a>{% endif %}</p>
-{% if has_resume %}
+{% if demo %}{% elif has_resume %}
 <form action="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}/tailor" method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <button type="submit">Tailor my resume to this job</button>

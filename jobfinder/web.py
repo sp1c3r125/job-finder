@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import db, report
+from . import demo as demo_mod
 from . import resume as resume_mod
 from .guard import CappedBackend, default_cap, killed
 from .log import make_logger
@@ -39,10 +40,15 @@ def load_config():
 
 
 def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline=None,
-               log_path="logs/decisions.jsonl", kill_file="KILL"):
+               log_path="logs/decisions.jsonl", kill_file="KILL", demo=False):
     """backend: a model backend or a function returning one (default: BACKEND from .env).
-    run_pipeline: replaces the daily search run (tests)."""
+    run_pipeline: replaces the daily search run (tests).
+    demo: public read-only build. Reads only demo.db (invented jobs); no write routes, no downloads, no resume,
+    no model, no logging of visitors."""
     cfg = cfg if cfg is not None else load_config()
+    if demo:
+        db_path = db_path or str(ROOT / demo_mod.DEMO_DB)
+        demo_mod.seed(db_path)
     db_path = db_path or os.environ.get("JOBFINDER_DB", str(ROOT / "jobs.db"))
     base = Path(base_dir or ROOT)
     log = make_logger(log_path)
@@ -73,7 +79,8 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
         con = db.connect(db_path)
         try:
             ctx.update(csrf=token, status=runner.status(), calls=db.calls_today(con), cap=cap,
-                       kill=killed(con, kill_file), has_resume=resume_mod.load_resume() is not None,
+                       kill=killed(con, kill_file), demo=demo,
+                       has_resume=not demo and resume_mod.load_resume() is not None,
                        notice=NOTICES.get(request.query_params.get("notice", "")))
         finally:
             con.close()
@@ -107,6 +114,24 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
             raise HTTPException(404, "No such job")
         return page(request, "job.html", r=report.row_from(raw), description=raw["description"] or "",
                     location=raw["location"] or "")
+
+    @app.get("/about")
+    def about(request: Request):
+        return page(request, "about.html")
+
+    if demo:
+        # Every write route exists only to answer 405, so nothing can change data on the public demo.
+        def not_allowed():
+            raise HTTPException(405, "Read-only demo")
+
+        for route in ("/run", "/upload", "/kill", "/job/{source}/{source_id:path}/tailor"):
+            app.add_api_route(route, not_allowed, methods=["POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+
+        @app.get("/files/{path:path}")
+        def no_files(path: str):
+            raise HTTPException(404, "No downloads in the demo")
+
+        return app
 
     @app.post("/run")
     def run_now(request: Request, csrf_token: str = Form("")):
@@ -198,4 +223,4 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     return app
 
 
-app = create_app()
+app = create_app(demo=os.environ.get("DEMO") == "1")

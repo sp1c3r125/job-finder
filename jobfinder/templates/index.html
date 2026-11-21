@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block main %}
 <h1>Job matches</h1>
-<p>{{ rows|length }} scored job{{ "" if rows|length == 1 else "s" }}, best match first. A score of {{ threshold }} or more gets a draft.</p>
-<section aria-labelledby="actions-h">
+<p>{{ rows|length }} scored job{{ "" if rows|length == 1 else "s" }}, best match first. A score of {{ threshold }} or more gets a draft.{% if demo %} (Invented scores.){% endif %}</p>
+{% if not demo %}<section aria-labelledby="actions-h">
   <h2 id="actions-h">Actions</h2>
   <p>Model calls today: {{ calls }} of {{ cap }}. Kill switch: <strong>{{ "ON" if kill else "off" }}</strong>.
     Nothing here sends or applies anywhere.</p>
@@ -24,7 +24,7 @@
     <input type="file" id="resume-file" name="file" accept=".pdf,.docx,.txt,.md" required>
     <button type="submit">Upload and read resume</button>
   </form>
-</section>
+</section>{% endif %}
 {% if rows %}
 <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="jobs-caption">
   <table>
@@ -33,7 +33,7 @@
       <tr>
         <th scope="col">Score</th><th scope="col">Company</th><th scope="col">Title</th>
         <th scope="col">Source</th><th scope="col">Posted</th><th scope="col">Location rule</th>
-        <th scope="col">Draft</th><th scope="col">Resume</th>
+        {% if not demo %}<th scope="col">Draft</th><th scope="col">Resume</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -45,8 +45,8 @@
         <td data-label="Source">{{ r.sources }}{% include "_credit.html" %}</td>
         <td data-label="Posted">{{ r.posted }}</td>
         <td data-label="Location rule">{{ r.rule }}</td>
-        <td data-label="Draft">{% if r.draft %}<a href="/files/{{ r.draft|fileurl }}">Open</a>{% else %}None{% endif %}</td>
-        <td data-label="Resume">{% if r.resume %}<a href="/files/{{ r.resume|fileurl }}">Open</a>{% else %}None{% endif %}</td>
+        {% if not demo %}<td data-label="Draft">{% if r.draft %}<a href="/files/{{ r.draft|fileurl }}">Open</a>{% else %}None{% endif %}</td>
+        <td data-label="Resume">{% if r.resume %}<a href="/files/{{ r.resume|fileurl }}">Open</a>{% else %}None{% endif %}</td>{% endif %}
       </tr>
     {% endfor %}
     </tbody>

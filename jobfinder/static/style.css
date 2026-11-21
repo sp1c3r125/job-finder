@@ -48,3 +48,5 @@ tbody th { position: sticky; left: 0; background: var(--bg); font-weight: 600; }
 button, input[type="file"] { font: inherit; font-size: max(1rem, 1em); min-height: 48px; box-sizing: border-box; }
 button { padding: 0.5rem 1rem; cursor: pointer; color: var(--fg); background: var(--head); border: 1px solid var(--muted); border-radius: 0.25rem; }
 button:focus-visible, input:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+
+.banner { margin: 0; padding: 0.5rem 0.75rem; border: 1px solid var(--muted); background: var(--head); }

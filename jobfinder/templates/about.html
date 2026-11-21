@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}About the data{% endblock %}
+{% block main %}
+<p><a href="/">Back to all jobs</a></p>
+<h1>About the data</h1>
+{% if demo %}
+<p>This is a demo. Every job, company name, score, summary and evidence line on this site is invented for the demo.
+  The links point to <code>example.invalid</code>, which does not exist. No real job board was read, no resume was read,
+  and no AI model was called to make these pages.</p>
+<p>The real tool runs privately on its owner's computer, reads public job feeds, scores jobs against a resume and
+  drafts notes for a human to review. It never sends anything or applies anywhere.</p>
+{% else %}
+<p>Jobs come from public job-board APIs and feeds: Greenhouse, Lever and Ashby company boards,
+  <a href="https://himalayas.app">Himalayas</a>, <a href="https://remoteok.com">Remote OK</a> and
+  <a href="https://weworkremotely.com">We Work Remotely</a>. Scores and drafts are made by an AI model from the
+  facts in your resume and must be read by you before anything is used. Nothing is sent or applied for you.</p>
+{% endif %}
+{% endblock %}

@@ -95,3 +95,15 @@ private tunnel that requires you to sign in. Add the tunnel's hostname to `allow
   kill switch on (dashboard button, or an empty file named `KILL` in the project folder), calls are refused and logged as `model_refused`.
 - Forms carry a CSRF token and are checked against the Origin header. Every action adds a line to `logs/decisions.jsonl`.
 - **Eval set**: `python -m jobfinder.eval` runs a fake resume and 20 fake jobs through the real prompts (about 60 model calls per run).
+
+## Public demo (invented data only)
+
+```
+set DEMO=1
+python -m uvicorn jobfinder.web:app --host 127.0.0.1
+```
+
+`DEMO=1` builds a read-only site from `demo.db`, which `python -m jobfinder.demo` fills with 20 invented jobs and scores. It never opens
+`jobs.db`, `resume.json`, `drafts/` or `resumes/`. Every write route answers 405, `/files` is off, no model is called, nothing is logged about visitors.
+Add the public hostname to `allowed_hosts` in `config.yaml`. Before any REAL job data is shown publicly, read the terms of Himalayas,
+Remote OK and We Work Remotely yourself (the We Work Remotely terms page blocked my automated fetch, so that one is unverified).

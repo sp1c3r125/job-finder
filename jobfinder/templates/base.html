@@ -10,7 +10,8 @@
 </head>
 <body>
   <header>
-    <p class="brand"><a href="/">Job matches</a></p>
+    <p class="brand"><a href="/">Job matches</a>{% if demo %} <small>(demo)</small>{% endif %}</p>
+    {% if demo %}<p class="banner">Demo: every job, company and score here is invented. Nothing is real and nothing is sent anywhere.</p>{% endif %}
   </header>
   <main>
     <div role="status" class="status">
@@ -22,10 +23,15 @@
     {% block main %}{% endblock %}
   </main>
   <footer>
+    {% if demo %}
+    <p>Demo with invented data. No real jobs, companies, people or resumes are shown, and no model is called.
+      <a href="/about">About this demo</a></p>
+    {% else %}
     <p>Personal use only. Drafts and tailored resumes are never sent anywhere; you send them yourself.</p>
     <p>Job data sources: Greenhouse, Lever and Ashby public job-board APIs;
       <a href="https://himalayas.app">Himalayas</a>; <a href="https://remoteok.com">Remote OK</a>;
-      <a href="https://weworkremotely.com">We Work Remotely</a>.</p>
+      <a href="https://weworkremotely.com">We Work Remotely</a>. <a href="/about">About the data</a></p>
+    {% endif %}
   </footer>
 </body>
 </html>

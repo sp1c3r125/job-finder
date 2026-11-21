@@ -9,7 +9,7 @@ from . import db
 COLUMNS = ["Source", "Company", "Title", "Link", "Posted", "Location rule", "Score",
            "Evidence", "Gaps", "Deal-breakers", "Draft", "Resume", "Summary"]
 SOURCE_LABELS = {"greenhouse": "Greenhouse", "lever": "Lever", "ashby": "Ashby",
-                 "himalayas": "Himalayas", "remoteok": "Remote OK", "wwr": "We Work Remotely"}
+                 "himalayas": "Himalayas", "remoteok": "Remote OK", "wwr": "We Work Remotely", "demo": "Demo (invented)"}
 
 
 def row_from(r):

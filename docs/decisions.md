@@ -38,3 +38,17 @@ Recorded decisions. Do not reopen without new evidence.
 - FastAPI + Jinja2 + one CSS file, no JavaScript. Packages: fastapi, uvicorn, python-multipart (uploads, M2), jinja2; httpx is test-only.
 - Host allow-list (TrustedHostMiddleware) from `allowed_hosts` in config.yaml; `/files/` serves only `drafts/` and `resumes/`.
 - All SQL stays in `jobfinder/db.py` (enforced by tests/test_db.py).
+
+## M2 actions and guards
+- Actions: run now, resume upload, tailor one job. One background thread at a time (`runner.py`); a second request gets "busy".
+- `guard.CappedBackend` wraps every default backend (web and CLI): kill switch (settings table or a `KILL` file) and `daily_call_cap`
+  checked before each call; usage rows in the DB plus `model_call` / `model_refused` lines in the log. A refusal stops the run.
+- POST forms: CSRF token, Origin checked against `allowed_hosts`. Uploads: 5 MB, PDF/DOCX/TXT/MD, magic-byte check, random name in `resume/`.
+- Eval set: `python -m jobfinder.eval` (fake resume + 20 fake jobs). Not yet run against a live model.
+
+## M3 public demo
+- `DEMO=1` serves only invented data from `demo.db`; write routes answer 405; no downloads, no resume, no model, footer reworded.
+- Real data stays private. Source terms (Himalayas, Remote OK, We Work Remotely) must be verified by the owner before any real data is public.
+
+## M4 multi-user
+- Not built. TRIGGER: 5 or more job seekers ask, or the owner decides to sell it.
