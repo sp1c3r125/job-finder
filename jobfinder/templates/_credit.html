@@ -1,0 +1,4 @@
+{%- if r.source_key == "remoteok" %} <small>via <a href="{{ r.url }}">Remote OK</a></small>
+{%- elif r.source_key == "himalayas" %} <small>via <a href="https://himalayas.app">Himalayas</a></small>
+{%- elif r.source_key == "wwr" %} <small>via <a href="https://weworkremotely.com">We Work Remotely</a></small>
+{%- endif %}

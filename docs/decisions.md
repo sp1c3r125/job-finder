@@ -33,3 +33,8 @@ Recorded decisions. Do not reopen without new evidence.
 ## Open
 - Browser baseline: Baseline Widely available (set in CLAUDE.md).
 - The modern-web-guidance skill is not installed (`.agents/skills/` is missing).
+
+## M1 read-only dashboard
+- FastAPI + Jinja2 + one CSS file, no JavaScript. Packages: fastapi, uvicorn, python-multipart (uploads, M2), jinja2; httpx is test-only.
+- Host allow-list (TrustedHostMiddleware) from `allowed_hosts` in config.yaml; `/files/` serves only `drafts/` and `resumes/`.
+- All SQL stays in `jobfinder/db.py` (enforced by tests/test_db.py).

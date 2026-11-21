@@ -74,3 +74,15 @@ python -m jobfinder tailor <job link from the report>    # tailor for one stored
 - The tailoring checks catch added numbers and tool names, not every change in meaning. A plain word such as
   "led" or "owned" can still overstate a line. Read the tailored resume before you send it.
 - A strong job term written in lower case is caught; a plain word from the job (for example "python") is not.
+
+## Private dashboard (web)
+
+A read-only page of your scored jobs, best match first. It never sends or applies anywhere.
+
+```
+python -m uvicorn jobfinder.web:app --host 127.0.0.1
+```
+
+Open http://127.0.0.1:8000. Keep `--host 127.0.0.1`: the app has no login, so reach it from your phone only through a
+private tunnel that requires you to sign in. Add the tunnel's hostname to `allowed_hosts` in `config.yaml`
+(default: 127.0.0.1 and localhost); any other Host header gets a 400. Downloads are limited to `drafts/` and `resumes/`.

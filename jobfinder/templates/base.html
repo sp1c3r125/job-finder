@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Job matches{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <p class="brand"><a href="/">Job matches</a></p>
+  </header>
+  <main>
+    {% block main %}{% endblock %}
+  </main>
+  <footer>
+    <p>Personal use only. Drafts and tailored resumes are never sent anywhere; you send them yourself.</p>
+    <p>Job data sources: Greenhouse, Lever and Ashby public job-board APIs;
+      <a href="https://himalayas.app">Himalayas</a>; <a href="https://remoteok.com">Remote OK</a>;
+      <a href="https://weworkremotely.com">We Work Remotely</a>.</p>
+  </footer>
+</body>
+</html>

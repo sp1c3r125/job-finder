@@ -12,19 +12,19 @@ SOURCE_LABELS = {"greenhouse": "Greenhouse", "lever": "Lever", "ashby": "Ashby",
                  "himalayas": "Himalayas", "remoteok": "Remote OK", "wwr": "We Work Remotely"}
 
 
+def row_from(r):
+    """One report row (display fields) from a raw scored-job dict returned by db.py."""
+    s = json.loads(r["score_json"])
+    names = [SOURCE_LABELS.get(x, x) for x in [r["source"]] + json.loads(r["also_seen_on"] or "[]")]
+    return dict(source=names[0], sources=", ".join(names), source_key=r["source"], source_id=r["source_id"],
+                company=r["company"], title=r["title"], url=r["url"], posted=(r["posted"] or "")[:10],
+                rule=r["rule"] or "", score=s["fit_score"], evidence="; ".join(s["matching_evidence"]),
+                gaps="; ".join(s["gaps"]), deal_breakers="; ".join(s["deal_breakers"]),
+                draft=r["draft_path"] or "", resume=r["resume_path"] or "", summary=s["summary"])
+
+
 def rows(con):
-    out = []
-    for r in db.scored_jobs(con):
-        source, company, title, url, posted, rule = r["source"], r["company"], r["title"], r["url"], r["posted"], r["rule"]
-        sj, draft, also, resume = r["score_json"], r["draft_path"], r["also_seen_on"], r["resume_path"]
-        s = json.loads(sj)
-        names = [SOURCE_LABELS.get(x, x) for x in [source] + json.loads(also or "[]")]
-        out.append(dict(source=names[0], sources=", ".join(names), source_key=source, company=company,
-                        title=title, url=url, posted=(posted or "")[:10], rule=rule or "",
-                        score=s["fit_score"], evidence="; ".join(s["matching_evidence"]),
-                        gaps="; ".join(s["gaps"]), deal_breakers="; ".join(s["deal_breakers"]),
-                        draft=draft or "", resume=resume or "", summary=s["summary"]))
-    return sorted(out, key=lambda r: -r["score"])
+    return sorted((row_from(r) for r in db.scored_jobs(con)), key=lambda r: -r["score"])
 
 
 def write_xlsx(rs, path="report.xlsx"):

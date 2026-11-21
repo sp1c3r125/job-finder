@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ r.title }} at {{ r.company }}{% endblock %}
+{% block main %}
+<p><a href="/">Back to all jobs</a></p>
+<h1>{{ r.title }}</h1>
+<p>{{ r.company }} · {{ r.sources }}{% include "_credit.html" %} · posted {{ r.posted }}{% if location %} · {{ location }}{% endif %}</p>
+<p>Fit score: <strong>{{ r.score }}</strong> out of 100. Location rule: {{ r.rule }}.</p>
+<p><a href="{{ r.url }}">Open the original posting</a>
+  {% if r.draft %} · <a href="/files/{{ r.draft|fileurl }}">Cover note draft</a>{% endif %}
+  {% if r.resume %} · <a href="/files/{{ r.resume|fileurl }}">Tailored resume</a>{% endif %}</p>
+<section aria-labelledby="sum"><h2 id="sum">Summary</h2><p>{{ r.summary }}</p></section>
+<section aria-labelledby="ev"><h2 id="ev">Matching evidence</h2><p>{{ r.evidence or "None listed." }}</p></section>
+<section aria-labelledby="gp"><h2 id="gp">Gaps</h2><p>{{ r.gaps or "None listed." }}</p></section>
+<section aria-labelledby="db"><h2 id="db">Deal-breakers</h2><p>{{ r.deal_breakers or "None." }}</p></section>
+<section aria-labelledby="ds"><h2 id="ds">Job description</h2><div class="description">{{ description }}</div></section>
+{% endblock %}

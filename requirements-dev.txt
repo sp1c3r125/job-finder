@@ -1,2 +1,3 @@
 -r requirements.txt
 reportlab   # tests only: builds a PDF to test the resume PDF reader
+httpx          # tests only: FastAPI TestClient
