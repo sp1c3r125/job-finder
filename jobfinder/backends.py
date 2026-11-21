@@ -35,9 +35,9 @@ class ApiBackend:
         self.client = client
         self.model = model or os.environ.get("MODEL", DEFAULT_MODEL)
 
-    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name="submit_result"):
+    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name="submit_result", max_tokens=1500):
         resp = self.client.messages.create(
-            model=self.model, max_tokens=1500, system=system,
+            model=self.model, max_tokens=max_tokens, system=system,
             messages=[{"role": "user", "content": user}],
             tools=[{"name": tool_name, "description": "Return the result.", "input_schema": schema}],
             tool_choice={"type": "tool", "name": tool_name},
@@ -53,7 +53,8 @@ class ClaudeCodeBackend:
         self.model = model or os.environ.get("MODEL")
         self.run = run
 
-    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name=None):
+    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name=None, max_tokens=None):
+        # max_tokens is ignored: claude -p sets its own output limit.
         cmd = ["claude", "-p", "--output-format", "json", "--json-schema", json.dumps(schema),
                "--tools", "", "--no-session-persistence"]
         if self.model:

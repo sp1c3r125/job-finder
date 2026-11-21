@@ -3,3 +3,5 @@ PyYAML
 openpyxl
 anthropic
 pytest
+pypdf
+python-docx

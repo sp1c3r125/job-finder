@@ -2,7 +2,9 @@
 
 Every morning: fetch new remote AI/automation jobs, keep the ones open to the Philippines, score them
 against your profile with Claude, and draft a short cover note for the best ones.
-**It never sends anything and never applies anywhere.** Drafts are text files you read and send yourself.
+Optional: give it your resume. It then searches with keywords from the resume, scores against the resume facts,
+and makes a tailored resume (.docx) for each job that gets a cover note.
+**It never sends anything and never applies anywhere.** Drafts are files you read and send yourself.
 
 ## Sources
 Public job-board JSON APIs only: Greenhouse, Lever, Ashby. Companies and board names are in `companies.yaml`.
@@ -28,8 +30,26 @@ python -m jobfinder                          # full run
 python -m jobfinder --no-model               # fetch + pre-filter only, prints counts
 pytest
 ```
-Outputs (all git-ignored): `jobs.db`, `report.xlsx`, `dashboard.html`, `drafts/`, `logs/decisions.jsonl`.
+Outputs (all git-ignored): `jobs.db`, `report.xlsx`, `dashboard.html`, `drafts/`, `resumes/`, `logs/decisions.jsonl`.
 Schedule: see `schedule/job-finder-task.xml` and `schedule/run_daily.cmd` (edit paths and BACKEND).
+
+## Resume
+```
+python -m jobfinder import-resume resume/my-resume.pdf    # or put the file in resume/; the next run reads it
+python -m jobfinder tailor <job link from the report>    # tailor for one stored job, any score
+```
+1. **Import** (PDF, DOCX, TXT or MD). Claude copies the facts out of the resume. Plain code then keeps only the
+   items it finds in the resume text, word for word or nearly so (PDF noise). It lists what it left out.
+   The result is `resume.json` (git-ignored). A scanned PDF has no text layer: use a text PDF or DOCX.
+2. **Search.** Claude also suggests 3-8 search keywords from the resume. Up to `max_resume_keywords` of them
+   are added to `keywords` for the pre-filter and the Himalayas search. Scoring uses `profile.yaml` (optional:
+   your location, limits, known gaps) plus the resume facts.
+3. **Tailor.** For each job that gets a cover note, Claude selects, orders and rephrases resume lines for the job.
+   Code, not the model, writes names, titles, employers, dates and education. Code rejects a rewritten line that
+   adds a number, a tool-like term (AWS, C#, n8n, LangGraph) or a strong job term that its source line lacks,
+   and keeps the original line. Skills must come from the resume. Job needs the resume lacks go in "Gaps".
+   Output: `resumes/<company>__<title>__<source>.docx` and a `.changes.md` with gaps, changes and reverts.
+   The dashboard links both files. You read and send them yourself.
 
 ## Design decisions
 - Pre-filter is plain code (age, remote, location, keywords from `config.yaml`) so the model only sees plausible jobs.
@@ -39,6 +59,8 @@ Schedule: see `schedule/job-finder-task.xml` and `schedule/run_daily.cmd` (edit 
 - The model may use only `profile.yaml` facts; anything the job needs that the profile lacks is a gap.
 - Drafts only for score >= 70 with no deal-breakers, under 200 words.
 - Every decision is one line in `logs/decisions.jsonl`.
+- Resume facts are checked by plain code after the model copies them; a tailored line that fails a check falls
+  back to the original wording. The real resume and everything made from it are git-ignored.
 
 ## Known limits
 - Posted date: Greenhouse uses `first_published` (falls back to `updated_at`); only jobs from the last 3 days pass.
@@ -49,3 +71,6 @@ Schedule: see `schedule/job-finder-task.xml` and `schedule/run_daily.cmd` (edit 
 - Remote OK and WWR give free-text locations; only clear allowed terms pass, so some valid jobs are missed.
 - Same-source repeat titles (one role in several locations) are kept separate; only cross-source matches are merged.
 - The score is a model opinion; read the evidence and gaps before relying on it.
+- The tailoring checks catch added numbers and tool names, not every change in meaning. A plain word such as
+  "led" or "owned" can still overstate a line. Read the tailored resume before you send it.
+- A strong job term written in lower case is caught; a plain word from the job (for example "python") is not.

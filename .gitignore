@@ -11,3 +11,10 @@ logs/
 __pycache__/
 .pytest_cache/
 .venv/
+# your resume and everything made from it
+resume/*
+!resume/README.md
+resume.json
+resumes/
+*.pdf
+*.docx

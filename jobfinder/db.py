@@ -1,12 +1,14 @@
 import json
 import sqlite3
 
+from .models import Job
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
   source TEXT, source_id TEXT, company TEXT, title TEXT, url TEXT, posted TEXT,
   location TEXT, remote INTEGER, description TEXT, also_seen_on TEXT DEFAULT '[]',
   first_seen TEXT, passed INTEGER, rule TEXT,
-  score_json TEXT, draft_path TEXT, norm_key TEXT,
+  score_json TEXT, draft_path TEXT, norm_key TEXT, resume_path TEXT,
   PRIMARY KEY (source, source_id)
 )"""
 
@@ -14,6 +16,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 def connect(path="jobs.db"):
     con = sqlite3.connect(path)
     con.execute(SCHEMA)
+    if "resume_path" not in {r[1] for r in con.execute("PRAGMA table_info(jobs)")}:   # jobs.db made before resumes
+        con.execute("ALTER TABLE jobs ADD COLUMN resume_path TEXT")
     return con
 
 
@@ -32,10 +36,24 @@ def save(con, job, now_iso, passed, rule, key=""):
     con.commit()
 
 
-def set_score(con, job, score, draft_path=None):
-    con.execute("UPDATE jobs SET score_json=?, draft_path=? WHERE source=? AND source_id=?",
-                (json.dumps(score), draft_path, job.source, job.source_id))
+def set_score(con, job, score, draft_path=None, resume_path=None):
+    con.execute("UPDATE jobs SET score_json=?, draft_path=?, resume_path=? WHERE source=? AND source_id=?",
+                (json.dumps(score), draft_path, resume_path, job.source, job.source_id))
     con.commit()
+
+
+def set_resume(con, job, path):
+    con.execute("UPDATE jobs SET resume_path=? WHERE source=? AND source_id=?", (path, job.source, job.source_id))
+    con.commit()
+
+
+def find_job(con, url):
+    """The stored job with this link, or None."""
+    row = con.execute("SELECT source,source_id,company,title,url,posted,location,remote,description "
+                      "FROM jobs WHERE url=? LIMIT 1", (url,)).fetchone()
+    if not row:
+        return None
+    return Job(*row[:7], None if row[7] is None else bool(row[7]), row[8])
 
 
 def merge_duplicate(con, job, key):

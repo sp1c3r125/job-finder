@@ -6,3 +6,8 @@ location_allow: [philippines, apac, asia, asia-pacific, worldwide, anywhere, glo
 score_threshold: 70
 aggregators: [himalayas, remoteok, wwr]
 himalayas: {country: PH, timezone: "UTC+8", max_pages: 3}
+# Resume (optional). Put your resume (PDF, DOCX, TXT or MD) in resume/, or run:
+#   python -m jobfinder import-resume <file>
+use_resume_keywords: true   # add the resume's search keywords to `keywords` (Himalayas searches them too)
+max_resume_keywords: 6
+tailor_resume: true         # a tailored .docx for each job that also gets a cover note draft
