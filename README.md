@@ -23,7 +23,7 @@ Requests send a user agent, wait 1 second between calls, back off on HTTP 429, a
 
 ## Run
 ```
-pip install -r requirements.txt
+pip install -r requirements.txt          # tests: pip install -r requirements-dev.txt
 copy profile.example.yaml profile.yaml      # then put your real facts in profile.yaml
 set BACKEND=api                              # or claude-code; for api put ANTHROPIC_API_KEY in .env
 python -m jobfinder                          # full run

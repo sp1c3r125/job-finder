@@ -31,5 +31,5 @@ Recorded decisions. Do not reopen without new evidence.
 - We Work Remotely: terms not verified on the official page (it returned 403 to automated fetches). Check by hand before M3.
 
 ## Open
-- Browser baseline in CLAUDE.md is TODO.
+- Browser baseline: Baseline Widely available (set in CLAUDE.md).
 - The modern-web-guidance skill is not installed (`.agents/skills/` is missing).

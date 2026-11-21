@@ -1,0 +1,2 @@
+-r requirements.txt
+reportlab   # tests only: builds a PDF to test the resume PDF reader
