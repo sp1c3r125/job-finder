@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!-- Import: schtasks /Create /TN "JobFinder" /XML schedule\job-finder-task.xml
+     (save as UTF-16 if Task Scheduler complains) Runs every day at 07:30 local time. -->
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2026-01-01T07:30:00</StartBoundary>
+      <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Settings>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+  </Settings>
+  <Actions>
+    <Exec>
+      <Command>C:\dev\job-finder\schedule\run_daily.cmd</Command>
+      <WorkingDirectory>C:\dev\job-finder</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
