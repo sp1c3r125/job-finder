@@ -13,7 +13,8 @@ from .http import HttpClient
 from .log import make_logger
 from .prefilter import prefilter
 from .scoring import load_profile, score_job
-from .sources import ATS
+from .dedupe import dedupe, norm_key
+from .sources import AGGREGATORS, ATS
 
 
 def collect(http, cfg, companies, log):
@@ -26,6 +27,14 @@ def collect(http, cfg, companies, log):
             log("fetch_failed", None, source=c["source"], board=c["board"], error=str(e)[:300])
             continue
         returned[c["source"]] += len(got)
+        jobs += got
+    for name in cfg.get("aggregators", []):
+        try:
+            got = AGGREGATORS[name](http, cfg, log)
+        except Exception as e:  # noqa: BLE001
+            log("fetch_failed", None, source=name, error=str(e)[:300])
+            continue
+        returned[name] += len(got)
         jobs += got
     return jobs, returned
 
@@ -46,11 +55,17 @@ def run(argv=None, backend=None, http=None):
     jobs, returned = collect(http, cfg, companies, log)
     passed_by_source, new_passed = Counter(), []
     now = datetime.now(timezone.utc)
+    before = len(jobs)
+    jobs = dedupe(jobs)
+    log("dedupe", None, before=before, after=len(jobs))
     for job in jobs:
         if db.is_seen(con, job):
             continue
+        if db.merge_duplicate(con, job, norm_key(job)):     # same company+title already stored from another source
+            log("duplicate_of_stored", job)
+            continue
         ok, rule = prefilter(job, cfg, now)
-        db.save(con, job, now.isoformat(), ok, rule)
+        db.save(con, job, now.isoformat(), ok, rule, norm_key(job))
         log("prefilter_pass" if ok else "prefilter_reject", job, reason=rule)
         if ok:
             passed_by_source[job.source] += 1
