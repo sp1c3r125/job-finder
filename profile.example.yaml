@@ -1,0 +1,13 @@
+# Fake person. Copy to profile.yaml (git-ignored) and replace with your real facts.
+name: Alex Example
+location: Cebu, Philippines
+timezone: UTC+8
+years_experience: 4
+summary: Automation developer who builds workflow tools and small LLM apps.
+skills: [Python, SQL, Zapier, n8n, REST APIs, prompt design]
+experience:
+  - Built an invoice-processing workflow for a small agency (Python, n8n).
+  - Wrote an internal email-sorting tool that calls an LLM API.
+education: BS Information Technology
+languages: [English, Filipino]
+constraints: [Prefers daytime hours in UTC+8]

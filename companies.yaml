@@ -1,0 +1,12 @@
+# Board names checked against each public API (HTTP 200) on 2026-11-21.
+companies:
+  - {name: Anthropic,  source: greenhouse, board: anthropic}
+  - {name: Scale AI,   source: greenhouse, board: scaleai}
+  - {name: Palantir,   source: lever,      board: palantir}
+  - {name: OpenAI,     source: ashby,      board: openai}
+  - {name: Cohere,     source: ashby,      board: cohere}
+  - {name: Perplexity, source: ashby,      board: perplexity}
+  - {name: LangChain,  source: ashby,      board: langchain}
+  - {name: Sierra,     source: ashby,      board: sierra}
+  - {name: n8n,        source: ashby,      board: n8n}
+  - {name: Zapier,     source: ashby,      board: zapier}

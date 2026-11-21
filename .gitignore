@@ -1,0 +1,13 @@
+profile.yaml
+.env
+.env.*
+*.db
+*.sqlite
+report.xlsx
+dashboard.html
+drafts/
+logs/
+.cache/
+__pycache__/
+.pytest_cache/
+.venv/

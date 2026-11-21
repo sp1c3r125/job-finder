@@ -1,0 +1,6 @@
+user_agent: "job-finder/0.1 (personal job search, not a crawler)"
+request_delay_seconds: 1.0
+max_age_days: 3
+keywords: [AI, automation, agent, LLM, forward deployed, solutions engineer]
+location_allow: [philippines, apac, asia, asia-pacific, worldwide, anywhere, global]
+score_threshold: 70
