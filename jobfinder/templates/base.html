@@ -6,12 +6,19 @@
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}Job matches{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
+  {% if status and status.state == "running" %}<meta http-equiv="refresh" content="5">{% endif %}
 </head>
 <body>
   <header>
     <p class="brand"><a href="/">Job matches</a></p>
   </header>
   <main>
+    <div role="status" class="status">
+      {% if notice %}<p>{{ notice }}</p>{% endif %}
+      {% if status and status.state == "running" %}<p>Running: {{ status.label }}…</p>
+      {% elif status and status.state == "done" %}<p>Last action finished: {{ status.label }}. {{ status.message }}</p>
+      {% elif status and status.state == "failed" %}<p><strong>Failed:</strong> {{ status.label }}. {{ status.message }}</p>{% endif %}
+    </div>
     {% block main %}{% endblock %}
   </main>
   <footer>

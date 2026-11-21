@@ -2,6 +2,29 @@
 {% block main %}
 <h1>Job matches</h1>
 <p>{{ rows|length }} scored job{{ "" if rows|length == 1 else "s" }}, best match first. A score of {{ threshold }} or more gets a draft.</p>
+<section aria-labelledby="actions-h">
+  <h2 id="actions-h">Actions</h2>
+  <p>Model calls today: {{ calls }} of {{ cap }}. Kill switch: <strong>{{ "ON" if kill else "off" }}</strong>.
+    Nothing here sends or applies anywhere.</p>
+  <div class="actions">
+    <form action="/run" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <button type="submit">Run search now</button>
+    </form>
+    <form action="/kill" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <input type="hidden" name="on" value="{{ '0' if kill else '1' }}">
+      <button type="submit">{{ "Turn kill switch off" if kill else "Turn kill switch on" }}</button>
+    </form>
+  </div>
+  <form action="/upload" method="post" enctype="multipart/form-data" aria-labelledby="upload-h" class="upload">
+    <h3 id="upload-h">Import a resume</h3>
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label for="resume-file">Resume file (PDF, DOCX, TXT or MD, up to 5 MB)</label>
+    <input type="file" id="resume-file" name="file" accept=".pdf,.docx,.txt,.md" required>
+    <button type="submit">Upload and read resume</button>
+  </form>
+</section>
 {% if rows %}
 <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="jobs-caption">
   <table>

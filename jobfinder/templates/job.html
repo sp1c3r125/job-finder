@@ -8,6 +8,12 @@
 <p><a href="{{ r.url }}">Open the original posting</a>
   {% if r.draft %} · <a href="/files/{{ r.draft|fileurl }}">Cover note draft</a>{% endif %}
   {% if r.resume %} · <a href="/files/{{ r.resume|fileurl }}">Tailored resume</a>{% endif %}</p>
+{% if has_resume %}
+<form action="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}/tailor" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <button type="submit">Tailor my resume to this job</button>
+</form>
+{% else %}<p>Import a resume on the main page to tailor it to this job.</p>{% endif %}
 <section aria-labelledby="sum"><h2 id="sum">Summary</h2><p>{{ r.summary }}</p></section>
 <section aria-labelledby="ev"><h2 id="ev">Matching evidence</h2><p>{{ r.evidence or "None listed." }}</p></section>
 <section aria-labelledby="gp"><h2 id="gp">Gaps</h2><p>{{ r.gaps or "None listed." }}</p></section>

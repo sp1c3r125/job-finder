@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS job_scores (
   source TEXT, source_id TEXT, score_json TEXT, draft_path TEXT, resume_path TEXT,
   PRIMARY KEY (source, source_id)
 );
+CREATE TABLE IF NOT EXISTS usage (day TEXT, ts TEXT, kind TEXT, note TEXT);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 """
 
 
@@ -113,3 +115,34 @@ def get_scored_job(con, source, source_id, now_iso=None):
     desc = con.execute("SELECT description FROM jobs WHERE source=? AND source_id=?", (source, source_id)).fetchone()
     out["description"] = desc[0] if desc else ""
     return out
+
+
+def get_job(con, source, source_id):
+    """The stored job with this key, or None."""
+    row = con.execute("SELECT source,source_id,company,title,url,posted,location,remote,description "
+                      "FROM jobs WHERE source=? AND source_id=?", (source, source_id)).fetchone()
+    if not row:
+        return None
+    return Job(*row[:7], None if row[7] is None else bool(row[7]), row[8])
+
+
+def add_usage(con, kind, note=""):
+    """One row per model call ('call') or refused call ('refused')."""
+    now = datetime.now(timezone.utc)
+    con.execute("INSERT INTO usage (day, ts, kind, note) VALUES (?,?,?,?)", (now.date().isoformat(), now.isoformat(), kind, note))
+    con.commit()
+
+
+def calls_today(con):
+    day = datetime.now(timezone.utc).date().isoformat()
+    return con.execute("SELECT COUNT(*) FROM usage WHERE day=? AND kind='call'", (day,)).fetchone()[0]
+
+
+def get_setting(con, key, default=""):
+    row = con.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def set_setting(con, key, value):
+    con.execute("INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+    con.commit()

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import yaml
 
 from . import db, report, resume
-from .backends import get_backend
+from .guard import capped_default
 from .drafts import draft_note, eligible, write_draft
 from .http import HttpClient
 from .log import make_logger
@@ -58,7 +58,7 @@ def run(argv=None, backend=None, http=None):
 
     def backend_once():
         nonlocal backend
-        backend = backend or get_backend()
+        backend = backend or capped_default(args.db, log)
         return backend
 
     if not args.no_model:
@@ -99,6 +99,10 @@ def run(argv=None, backend=None, http=None):
     backend = backend_once()
     tailored = 0
     for job in new_passed:
+        if getattr(backend, "stopped", False):       # kill switch or daily cap: stop, do not try every job
+            log("run_stopped", None, reason="model refused")
+            print("model calls refused (kill switch or daily cap): stopped early")
+            break
         score = score_job(backend, profile_text, job, log)
         if score is None:
             continue
@@ -132,7 +136,8 @@ def import_resume_cmd(argv, backend=None):
     except (OSError, ValueError) as e:
         print(f"could not read {args.file}: {e}")
         return 1
-    got = resume.import_resume(backend or get_backend(), args.file, make_logger())
+    log = make_logger()
+    got = resume.import_resume(backend or capped_default("jobs.db", log), args.file, log)
     if not got:
         print("resume import failed; see logs/decisions.jsonl")
         return 1
@@ -156,12 +161,13 @@ def tailor_cmd(argv, backend=None):
     if not res:
         print("no resume.json yet. Run: python -m jobfinder import-resume <file>")
         return 1
+    log = make_logger()
     con = db.connect(args.db)
     job = db.find_job(con, args.url)
     if not job:
         print("that link is not in jobs.db. Run python -m jobfinder first.")
         return 1
-    got = tailor_resume(backend or get_backend(), res, job, make_logger())
+    got = tailor_resume(backend or capped_default(args.db, log), res, job, log)
     if not got:
         print("tailoring failed; see logs/decisions.jsonl")
         return 1

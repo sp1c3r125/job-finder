@@ -86,3 +86,12 @@ python -m uvicorn jobfinder.web:app --host 127.0.0.1
 Open http://127.0.0.1:8000. Keep `--host 127.0.0.1`: the app has no login, so reach it from your phone only through a
 private tunnel that requires you to sign in. Add the tunnel's hostname to `allowed_hosts` in `config.yaml`
 (default: 127.0.0.1 and localhost); any other Host header gets a 400. Downloads are limited to `drafts/` and `resumes/`.
+
+### Actions on the dashboard (you click, nothing is sent)
+- **Run search now**: starts the same run as `python -m jobfinder` in the background. One job runs at a time; a second click says "busy".
+- **Import a resume**: upload PDF, DOCX, TXT or MD (5 MB max). It is saved under a random name in `resume/` and is never served back.
+- **Tailor my resume to this job** (job page): writes a `.docx` in `resumes/`. Read it before you use it.
+- **Cost cap and kill switch**: `daily_call_cap` in `config.yaml` limits model calls per UTC day (CLI and web). Past the cap, or with the
+  kill switch on (dashboard button, or an empty file named `KILL` in the project folder), calls are refused and logged as `model_refused`.
+- Forms carry a CSRF token and are checked against the Origin header. Every action adds a line to `logs/decisions.jsonl`.
+- **Eval set**: `python -m jobfinder.eval` runs a fake resume and 20 fake jobs through the real prompts (about 60 model calls per run).
