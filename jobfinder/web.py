@@ -4,6 +4,7 @@ every action only reads public job feeds, calls the model (behind the cap and ki
 import hmac
 import os
 import secrets
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -25,6 +26,12 @@ from .tailor import tailor_resume
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'; object-src 'none'",
+}
 DOWNLOAD_DIRS = ("drafts", "resumes")      # only these folders can be downloaded
 MAX_UPLOAD = 5 * 1024 * 1024
 MAGIC = {".pdf": b"%PDF", ".docx": b"PK"}  # cheap wrong-type check for binary formats
@@ -59,6 +66,15 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     app = FastAPI(title="Job matches", docs_url=None, redoc_url=None, openapi_url=None)
     # Host allow-list blocks DNS rebinding. Add your tunnel hostname under allowed_hosts in config.yaml.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
+
+    @app.middleware("http")
+    async def security_headers(request, call_next):
+        response = await call_next(request)
+        response.headers.update(SECURITY_HEADERS)
+        if response.headers.get("content-type", "").startswith("text/html"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     templates = Jinja2Templates(directory=HERE / "templates")
     templates.env.filters["fileurl"] = lambda p: str(p).replace(chr(92), "/")
@@ -74,6 +90,19 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
             raise HTTPException(403, "Bad origin")
         if not hmac.compare_digest(csrf_token or "", token):
             raise HTTPException(403, "Bad token")
+
+    def resume_summary():
+        """What the dashboard shows about resume.json (None when there is none)."""
+        res = resume_mod.load_resume()
+        if not res:
+            return None
+        read = res.get("imported_at")
+        if not read:
+            read = datetime.fromtimestamp(os.path.getmtime(resume_mod.RESUME_JSON), timezone.utc).isoformat(timespec="seconds")
+        return {"file": res.get("source_file") or "unknown", "read": read.replace("T", " ").replace("+00:00", " UTC"),
+                "name": res.get("name") or "not found", "roles": len(res.get("roles", [])),
+                "skills": len(res.get("skills", [])), "keywords": ", ".join(res.get("search_keywords", [])),
+                "left_out": res.get("left_out")}
 
     def page(request, name, **ctx):
         con = db.connect(db_path)
@@ -101,7 +130,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
             rs = report.rows(con)
         finally:
             con.close()
-        return page(request, "index.html", rows=rs, threshold=cfg.get("score_threshold", 70))
+        return page(request, "index.html", rows=rs, resume=None if demo else resume_summary(), threshold=cfg.get("score_threshold", 70))
 
     @app.get("/job/{source}/{source_id:path}")
     def job(request: Request, source: str, source_id: str):

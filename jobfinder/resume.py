@@ -2,6 +2,7 @@
 The resume and everything made from it stay local (git-ignored)."""
 import copy
 import json
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 
@@ -106,7 +107,8 @@ def import_resume(backend, path, log, out=RESUME_JSON):
     else:
         return None
     facts, dropped = verify(raw, text)
-    facts.update(source_file=Path(path).name, text=text)
+    facts.update(source_file=Path(path).name, text=text, left_out=dropped,
+                 imported_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
     Path(out).write_text(json.dumps(facts, ensure_ascii=False, indent=2), encoding="utf-8")
     log("resume_imported", None, file=Path(path).name, roles=len(facts["roles"]), skills=len(facts["skills"]),
         search_keywords=facts["search_keywords"], dropped=dropped)

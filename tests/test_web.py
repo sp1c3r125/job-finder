@@ -59,3 +59,32 @@ def test_files_only_from_drafts_and_resumes(tmp_path):
 
 def test_no_write_routes(tmp_path):
     assert make_client(tmp_path).post("/").status_code == 405
+
+
+def test_security_headers_on_every_response_and_no_store_on_html(tmp_path):
+    from fastapi.testclient import TestClient
+    app = web.create_app(str(tmp_path / "h.db"), dict(CFG), base_dir=tmp_path, log_path=str(tmp_path / "l.jsonl"))
+    c = TestClient(app, base_url="http://127.0.0.1")
+    for path in ("/", "/about", "/static/style.css", "/nope"):
+        h = c.get(path).headers
+        assert h["x-content-type-options"] == "nosniff" and h["referrer-policy"] == "strict-origin-when-cross-origin"
+        assert h["content-security-policy"] == web.SECURITY_HEADERS["Content-Security-Policy"]
+        for part in ("default-src 'self'", "frame-ancestors 'none'", "form-action 'self'", "base-uri 'none'", "object-src 'none'"):
+            assert part in h["content-security-policy"]
+    assert c.get("/").headers["cache-control"] == "no-store"
+    assert "no-store" not in c.get("/static/style.css").headers.get("cache-control", "")
+
+
+def test_resume_panel_and_no_meta_refresh(tmp_path, monkeypatch):
+    import json
+    from fastapi.testclient import TestClient
+    monkeypatch.chdir(tmp_path)
+    app = web.create_app(str(tmp_path / "h.db"), dict(CFG), base_dir=tmp_path, log_path=str(tmp_path / "l.jsonl"))
+    c = TestClient(app, base_url="http://127.0.0.1")
+    assert "No resume yet" in c.get("/").text
+    (tmp_path / "resume.json").write_text(json.dumps({"name": "Alex Example", "source_file": "abc.md", "imported_at": "2026-11-22T01:02:03+00:00",
+        "roles": [{}, {}], "skills": ["Python"], "search_keywords": ["automation", "n8n"], "left_out": ["skill: Kubernetes"]}), encoding="utf-8")
+    t = c.get("/").text
+    for x in ("abc.md", "2026-11-22 01:02:03 UTC", "Alex Example", "automation, n8n", "skill: Kubernetes"):
+        assert x in t
+    assert "http-equiv" not in t

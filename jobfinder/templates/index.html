@@ -17,6 +17,22 @@
       <button type="submit">{{ "Turn kill switch off" if kill else "Turn kill switch on" }}</button>
     </form>
   </div>
+  <section class="resume-panel" aria-labelledby="resume-h">
+    <h3 id="resume-h">Your resume</h3>
+    {% if resume %}
+    <dl>
+      <dt>File</dt><dd>{{ resume.file }}</dd>
+      <dt>Read</dt><dd>{{ resume.read }}</dd>
+      <dt>Name</dt><dd>{{ resume.name }}</dd>
+      <dt>Roles</dt><dd>{{ resume.roles }}</dd>
+      <dt>Skills</dt><dd>{{ resume.skills }}</dd>
+      <dt>Search keywords</dt><dd>{{ resume.keywords or "None" }}</dd>
+      <dt>Left out (not found in the resume text)</dt>
+      <dd>{% if resume.left_out is none %}Not recorded for this import. Upload again to see it.
+        {% elif resume.left_out %}<ul>{% for x in resume.left_out %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}Nothing.{% endif %}</dd>
+    </dl>
+    {% else %}<p>No resume yet.</p>{% endif %}
+  </section>
   <form action="/upload" method="post" enctype="multipart/form-data" aria-labelledby="upload-h" class="upload">
     <h3 id="upload-h">Import a resume</h3>
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
