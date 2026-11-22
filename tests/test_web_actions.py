@@ -128,14 +128,14 @@ def test_end_to_end_upload_sample_resume_then_tailor_and_open_docx(env):
     class Model:
         def complete(self, system, user, schema=None, tool_name=None, max_tokens=None):
             if "roles" in (schema or {}).get("properties", {}) and "role_id" not in str(schema):   # resume import
-                return {"name": "Alex Example", "contact": ["alex@example.com"], "summary": "Automation developer who builds workflow tools and small LLM apps for small businesses.",
+                return {"name": "Alex Example", "headline": "", "contact": ["alex@example.com"], "summary": "Automation developer who builds workflow tools and small LLM apps for small businesses.",
                         "skills": ["Python", "n8n"], "education": [], "certifications": [], "languages": [],
-                        "search_keywords": ["automation"],
+                        "search_keywords": ["automation"], "additional": [],
                         "target": {"titles": ["Automation Developer"], "title_words": ["developer"], "exclude_words": [], "level": "mid"},
                         "roles": [{"title": "Automation Developer", "company": "Example Agency Co.", "dates": "Mar 2023 - Present",
-                                   "location": "Cebu", "bullets": [bullet]}]}
+                                   "location": "Cebu", "bullets": [bullet], "groups": []}]}
             return {"summary": "", "skills": ["n8n", "Python"], "gaps": ["No Kubernetes"], "changes": ["moved n8n first"],
-                    "roles": [{"role_id": "r0", "bullets": [{"source_id": "r0b0", "text": bullet}]}]}
+                    "roles": [{"role_id": "r0", "bullets": [{"source_id": "r0b0", "text": bullet}], "groups": []}]}
 
     c, token, path = client(env, backend=Model())
     assert c.post("/upload", data={"csrf_token": token}, files={"file": ("resume.sample.md", sample)}).status_code == 303

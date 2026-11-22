@@ -13,6 +13,8 @@ def write_docx(t, path):
     d.styles["Normal"].font.name = "Calibri"
     d.styles["Normal"].font.size = Pt(11)
     d.add_heading(t["name"] or "Resume", level=0)
+    if t.get("headline"):
+        d.add_paragraph(t["headline"])
     if t["contact"]:
         d.add_paragraph(" | ".join(t["contact"]))
     if t["summary"]:
@@ -32,6 +34,18 @@ def write_docx(t, path):
                 d.add_paragraph(meta)
             for b in r["bullets"]:
                 d.add_paragraph(b, style="List Bullet")
+            for g in r.get("groups") or []:
+                h = d.add_paragraph()
+                run = h.add_run(g["heading"])
+                run.bold = run.italic = True
+                h.paragraph_format.space_after = Pt(0)
+                h.paragraph_format.keep_with_next = True
+                for b in g["bullets"]:
+                    d.add_paragraph(b, style="List Bullet")
+    if t.get("additional"):
+        d.add_heading("Additional", level=1)
+        for x in t["additional"]:
+            d.add_paragraph(x)
     for head, key in (("Education", "education"), ("Certifications", "certifications")):
         if t[key]:
             d.add_heading(head, level=1)

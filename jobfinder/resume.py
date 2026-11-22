@@ -12,21 +12,31 @@ from .checks import check_shape, grounded, has_word
 RESUME_JSON = "resume.json"
 DROP_DIR = "resume"
 EXTS = (".pdf", ".docx", ".txt", ".md")
-FACT_KEYS = ("name", "contact", "summary", "skills", "roles", "education", "certifications", "languages")
+FACT_KEYS = ("name", "headline", "contact", "summary", "skills", "roles", "education", "certifications", "languages", "additional")
 
 _S = {"type": "string"}
 _SL = {"type": "array", "items": _S}
-_ROLE = {"type": "object", "properties": {"title": _S, "company": _S, "dates": _S, "location": _S, "bullets": _SL},
-         "required": ["title", "company", "dates", "location", "bullets"], "additionalProperties": False}
-_FIELDS = {"name": _S, "contact": _SL, "summary": _S, "skills": _SL, "roles": {"type": "array", "items": _ROLE},
-           "education": _SL, "certifications": _SL, "languages": _SL, "search_keywords": _SL,
-           "target": target_mod.TARGET_SCHEMA}
+_GROUP = {"type": "object", "properties": {"heading": _S, "bullets": _SL},
+          "required": ["heading", "bullets"], "additionalProperties": False}
+_ROLE = {"type": "object",
+         "properties": {"title": _S, "company": _S, "dates": _S, "location": _S, "bullets": _SL,
+                        "groups": {"type": "array", "items": _GROUP}},
+         "required": ["title", "company", "dates", "location", "bullets", "groups"], "additionalProperties": False}
+_FIELDS = {"name": _S, "headline": _S, "contact": _SL, "summary": _S, "skills": _SL, "roles": {"type": "array", "items": _ROLE},
+           "education": _SL, "certifications": _SL, "languages": _SL, "additional": _SL,
+           "search_keywords": _SL, "target": target_mod.TARGET_SCHEMA}
 RESUME_SCHEMA = {"type": "object", "properties": _FIELDS, "required": list(_FIELDS), "additionalProperties": False}
 
 SYSTEM = """Copy the facts out of one resume. Copy text EXACTLY as written: do not fix, shorten, merge, translate or add.
-name: the person's name. contact: email, phone, city, links, one item each. summary: the summary or profile
+name: the person's name. headline: the title line directly under the name, if there is one, or "";
+it is not a section and not an "additional" line. contact: email, phone, city, links, one item each. summary: the summary or profile
 paragraph, or "". skills: each skill or tool name as written. roles: every job, newest first, with bullets copied
-one by one. education, certifications, languages: one item each, as written. Use "" or [] when the resume has none.
+one by one. If a role's bullets sit under sub-headings (an engagement, client or topic name), put each sub-heading
+in that role's groups as heading, copied exactly, with the bullets under it in the group's bullets; bullets that are
+not under a sub-heading go in the role's bullets. Never save a sub-heading as a bullet.
+education, certifications, languages: one item each, as written. additional: every other line of the resume that fits
+no field above (for example "Earlier:" roles and "Leadership:" lines), one line each, copied word for word, with its
+label. Use "" or [] when the resume has none.
 search_keywords: 3 to 8 short job-search terms (1 to 3 words) for the roles this person fits, such as job titles
 or core skills. Base them only on the resume.
 target: the job-search profile, made only from this resume:
@@ -80,19 +90,35 @@ def verify(raw, text):
             return ""
         return x
 
+    def line(x, text_):
+        """A whole line, or a short 'Label:' (a heading that PDF text extraction can move) plus a line found in the text."""
+        if grounded(x, text_):
+            return True
+        label, sep, rest = x.partition(":")
+        return bool(sep) and len(label.split()) <= 3 and has_word(label, text_) and grounded(rest, text_)
+
     roles = []
     for r in raw["roles"]:
         title, company = r["title"].strip(), r["company"].strip()
         if not title or not grounded(title, text) or (company and not grounded(company, text)):
             dropped.append(f"role: {title} at {company} (title or employer not found)")
             continue
+        groups = []
+        for g in r["groups"]:
+            heading = g["heading"].strip()
+            if not heading or not grounded(heading, text):          # a heading we cannot verify would misplace its bullets
+                dropped.append(f"group: {heading} ({title}; heading not found, its bullets left out)")
+                continue
+            groups.append({"heading": heading, "bullets": keep(f"bullet ({title} / {heading})", g["bullets"])})
         roles.append({"title": title, "company": company, "dates": one("dates", r["dates"]),
-                      "location": one("location", r["location"]), "bullets": keep(f"bullet ({title})", r["bullets"])})
-    facts = {"name": one("name", raw["name"]), "contact": keep("contact", raw["contact"]),
+                      "location": one("location", r["location"]), "bullets": keep(f"bullet ({title})", r["bullets"]),
+                      "groups": groups})
+    facts = {"name": one("name", raw["name"]), "headline": one("headline", raw["headline"]), "contact": keep("contact", raw["contact"]),
              "summary": one("summary", raw["summary"]), "skills": keep("skill", raw["skills"], has_word),
              "roles": roles, "education": keep("education", raw["education"]),
              "certifications": keep("certification", raw["certifications"]),
              "languages": keep("language", raw["languages"], has_word),
+             "additional": keep("additional line", raw["additional"], line),
              # search terms are not claims, so they are not checked against the text
              "search_keywords": [k.strip() for k in raw["search_keywords"] if 0 < len(k.strip()) <= 40][:8]}
     try:                                           # a search profile is not a claim either: no grounding check

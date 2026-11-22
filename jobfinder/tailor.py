@@ -7,8 +7,11 @@ _S = {"type": "string"}
 _SL = {"type": "array", "items": _S}
 _BULLET = {"type": "object", "properties": {"source_id": _S, "text": _S},
            "required": ["source_id", "text"], "additionalProperties": False}
-_ROLE = {"type": "object", "properties": {"role_id": _S, "bullets": {"type": "array", "items": _BULLET}},
-         "required": ["role_id", "bullets"], "additionalProperties": False}
+_GROUP = {"type": "object", "properties": {"group_id": _S, "bullets": {"type": "array", "items": _BULLET}},
+          "required": ["group_id", "bullets"], "additionalProperties": False}
+_ROLE = {"type": "object", "properties": {"role_id": _S, "bullets": {"type": "array", "items": _BULLET},
+                                          "groups": {"type": "array", "items": _GROUP}},
+         "required": ["role_id", "bullets", "groups"], "additionalProperties": False}
 _FIELDS = {"summary": _S, "skills": _SL, "roles": {"type": "array", "items": _ROLE}, "gaps": _SL, "changes": _SL}
 TAILOR_SCHEMA = {"type": "object", "properties": _FIELDS, "required": list(_FIELDS), "additionalProperties": False}
 
@@ -18,6 +21,9 @@ Rules:
 - Do not add any tool, skill, employer, title, certification, number, metric or date that the source line lacks.
 - Use the job's wording only where the source line already supports it.
 - Inside each role, put the most relevant bullets first. You may leave out weak bullets; keep at least one per role.
+- A role can hold groups: a heading (an engagement, client or topic) with its own bullets. You may put the most
+  relevant groups first and reorder the bullets inside a group. A bullet stays in its own group: use only source ids
+  that start with that group's id. Do not write headings; code copies them. Bullets not in a group go in the role's bullets.
 - skills: order skills from the SKILLS list only, most relevant first.
 - summary: 2 or 3 sentences, built only from resume facts.
 - gaps: each job requirement the resume does not show. Name it; never hide it.
@@ -30,7 +36,15 @@ def resume_block(res):
     for i, r in enumerate(res["roles"]):
         lines.append(f"[r{i}] {r['title']} | {r['company']} | {r['dates']}")
         lines += [f"  [r{i}b{j}] {b}" for j, b in enumerate(r["bullets"])]
+        for k, g in enumerate(r.get("groups") or []):
+            lines.append(f"  [r{i}g{k}] GROUP HEADING: {g['heading']}")
+            lines += [f"    [r{i}g{k}b{j}] {b}" for j, b in enumerate(g["bullets"])]
     return "\n".join(lines)
+
+
+def all_bullets(role):
+    """Every bullet of a role, grouped or not."""
+    return list(role["bullets"]) + [b for g in role.get("groups") or [] for b in g["bullets"]]
 
 
 def build_user(res, job):
@@ -43,22 +57,29 @@ def assemble(res, out, job_text):
     reverts = []
     text = res["text"]
     job_terms = sorted({t for t, strong in terms(job_text) if strong})
-    by_role = {}
+    by_role, by_group, group_order = {}, {}, {}
+    ids = {f"r{i}" for i in range(len(res["roles"]))}
+    gids = {f"r{i}g{k}" for i, r in enumerate(res["roles"]) for k in range(len(r.get("groups") or []))}
     for r in out["roles"]:
         by_role.setdefault(r["role_id"], []).extend(r["bullets"])
-    for rid in sorted(set(by_role) - {f"r{i}" for i in range(len(res["roles"]))}):
+        for g in r["groups"]:
+            if g["group_id"] not in gids or not g["group_id"].startswith(r["role_id"] + "g"):
+                reverts.append(f"{g['group_id']}: unknown group id, ignored")
+                continue
+            order = group_order.setdefault(r["role_id"], [])
+            if g["group_id"] not in order:
+                order.append(g["group_id"])
+            by_group.setdefault(g["group_id"], []).extend(g["bullets"])
+    for rid in sorted(set(by_role) - ids):
         reverts.append(f"{rid}: unknown role id, ignored")
 
-    roles = []
-    for i, role in enumerate(res["roles"]):              # role order and facts always come from the resume
-        rid = f"r{i}"
-        src = {f"{rid}b{j}": b for j, b in enumerate(role["bullets"])}
-        ctx = f" {role['title']} {role['company']}"
+    def pick(label, requested, src, ctx):
+        """Checked bullets for one role or one group. A source id from another group is not in `src`, so it is ignored."""
         picked, used = [], set()
-        for b in by_role.get(rid, []):
+        for b in requested:
             sid, new = b["source_id"], b["text"].strip()
             if sid not in src or sid in used:
-                reverts.append(f"{sid}: unknown or repeated bullet id, ignored")
+                reverts.append(f"{sid}: unknown or repeated bullet id (or from another group), ignored")
                 continue
             used.add(sid)
             why = unsupported(new, src[sid] + ctx, text, job_terms)
@@ -66,10 +87,26 @@ def assemble(res, out, job_text):
                 reverts.append(f"{sid}: kept original wording ({'; '.join(why)})")
                 new = src[sid]
             picked.append(new)
-        if not picked and role["bullets"]:
-            picked = list(role["bullets"])
-            reverts.append(f"{rid}: no usable bullets returned, kept all original bullets")
-        roles.append(dict(role, bullets=picked))
+        if not picked and src:
+            picked = list(src.values())
+            reverts.append(f"{label}: no usable bullets returned, kept all original bullets")
+        return picked
+
+    roles = []
+    for i, role in enumerate(res["roles"]):              # role order and facts always come from the resume
+        rid = f"r{i}"
+        ctx = f" {role['title']} {role['company']}"
+        picked = pick(rid, by_role.get(rid, []), {f"{rid}b{j}": b for j, b in enumerate(role["bullets"])}, ctx)
+        src_groups = {f"{rid}g{k}": g for k, g in enumerate(role.get("groups") or [])}
+        order = group_order.get(rid, [])
+        order += [g for g in src_groups if g not in order]       # a group the model left out stays, in its place
+        groups = []
+        for gid in order:
+            g = src_groups[gid]                                  # the heading is copied word for word, never rewritten
+            src = {f"{gid}b{j}": b for j, b in enumerate(g["bullets"])}
+            groups.append({"heading": g["heading"],
+                           "bullets": pick(gid, by_group.get(gid, []), src, f"{ctx} {g['heading']}")})
+        roles.append(dict(role, bullets=picked, groups=groups))
 
     canon = {s.lower(): s for s in res["skills"]}
     skills = []
@@ -89,7 +126,9 @@ def assemble(res, out, job_text):
         summary = res["summary"]
 
     tailored = {k: res[k] for k in ("name", "contact", "education", "certifications", "languages")}
-    tailored.update(summary=summary, skills=skills, roles=roles)
+    tailored["headline"] = res.get("headline", "")                    # copied, never rewritten
+    tailored.update(summary=summary, skills=skills, roles=roles,
+                    additional=list(res.get("additional") or []))          # copied word for word, never rewritten
     info = {"gaps": [g.strip() for g in out["gaps"] if g.strip()][:15],
             "changes": [c.strip() for c in out["changes"] if c.strip()][:20], "reverts": reverts}
     return tailored, info

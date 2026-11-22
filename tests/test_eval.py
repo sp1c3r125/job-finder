@@ -18,7 +18,7 @@ class Model:
             return {"note": self.note}
         if tool_name == "submit_resume":
             return {"summary": "", "skills": ["Python", "n8n"], "gaps": ["No Kubernetes"], "changes": [],
-                    "roles": [{"role_id": "r0", "bullets": [{"source_id": "r0b0", "text": self.bullet}]}]}
+                    "roles": [{"role_id": "r0", "bullets": [{"source_id": "r0b0", "text": self.bullet}], "groups": []}]}
         return self.score
 
 
@@ -59,8 +59,8 @@ def test_verdict_is_added_as_one_line_to_the_eval_log(tmp_path, monkeypatch):
     class WithImport(Model):
         def complete(self, system, user, schema=None, tool_name=None, max_tokens=None):
             if tool_name == "submit_resume" and "search_keywords" in (schema or {}).get("properties", {}):
-                return {"name": "Alex Example", "contact": [], "summary": "", "skills": [], "roles": [],
-                        "education": [], "certifications": [], "languages": [], "search_keywords": [],
+                return {"name": "Alex Example", "headline": "", "contact": [], "summary": "", "skills": [], "roles": [],
+                        "education": [], "certifications": [], "languages": [], "additional": [], "search_keywords": [],
                         "target": {"titles": ["A"], "title_words": ["a"], "exclude_words": [], "level": "mid"}}
             return super().complete(system, user, schema, tool_name, max_tokens)
 

@@ -21,7 +21,7 @@ from .guard import capped_default
 from .log import make_logger
 from .models import Job
 from .scoring import score_job
-from .tailor import tailor_resume
+from .tailor import tailor_resume, all_bullets
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 FAILED = ("score_failed", "draft_failed", "tailor_failed", "resume_extract_failed")
@@ -56,8 +56,8 @@ def evaluate(backend, res, jobs, threshold, events):
             tailored, _ = got
             job_terms = sorted({t for t, strong in terms(f"{job.title}\n{job.description}") if strong})
             for role, original in zip(tailored["roles"], res["roles"]):
-                for b in role["bullets"]:
-                    if b not in original["bullets"] and unsupported(b, res["text"], res["text"], job_terms):
+                for b in all_bullets(role):
+                    if b not in all_bullets(original) and unsupported(b, res["text"], res["text"], job_terms):
                         m["unsupported_lines"] += 1
     m["failed_calls"] = sum(1 for e, _ in events if e in FAILED)
     return m

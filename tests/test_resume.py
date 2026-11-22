@@ -28,13 +28,13 @@ EXTRACTED = {
     "skills": ["Python", "SQL", "n8n", "Zapier", "REST APIs", "Kubernetes"],               # Kubernetes is invented
     "roles": [
         {"title": "Automation Developer", "company": "Example Agency Co.", "dates": "Mar 2023 - Present",
-         "location": "Cebu", "bullets": B[:3] + ["Led a team of 12 engineers."]},     # last bullet is invented
+         "location": "Cebu", "bullets": B[:3] + ["Led a team of 12 engineers."], "groups": []},     # last bullet is invented
         {"title": "Virtual Assistant", "company": "Freelance", "dates": "Jan 2021 - Feb 2023", "location": "",
-         "bullets": B[3:]},
-        {"title": "Head of AI", "company": "Big Corp", "dates": "2019", "location": "", "bullets": ["Ran AI."]},
+         "bullets": B[3:], "groups": []},
+        {"title": "Head of AI", "company": "Big Corp", "dates": "2019", "location": "", "bullets": ["Ran AI."], "groups": []},
     ],
     "education": ["BS Information Technology, University of Example, 2020"],
-    "certifications": [], "languages": ["English", "Filipino"],
+    "certifications": [], "languages": ["English", "Filipino"], "additional": [], "headline": "",
     "search_keywords": ["automation developer", "n8n", "LLM apps"],
     "target": {"titles": ["Automation Developer"], "title_words": ["developer", "automation"],
                "exclude_words": ["intern"], "level": "mid"},
@@ -46,7 +46,7 @@ TAILORED = {
     "roles": [{"role_id": "r0", "bullets": [
         {"source_id": "r0b1", "text": "Built an LLM email-sorting tool that routes 300 emails a day."},
         {"source_id": "r0b0", "text": "Built an invoice workflow in Python and n8n on Kubernetes, saving 10 hours a week."},
-        {"source_id": "r9b9", "text": "Invented bullet."}]}],
+        {"source_id": "r9b9", "text": "Invented bullet."}], "groups": []}],
     "gaps": ["Kubernetes", "LangGraph"],
     "changes": ["Moved the LLM email tool to the top."],
 }
@@ -154,7 +154,7 @@ def test_tailor_keeps_facts_and_reverts_invented_claims(facts):
 def test_tailor_reverts_invented_summary_and_lowercase_job_terms(facts):
     out = copy.deepcopy(TAILORED)
     out["summary"] = "Automation developer with 10 years of AWS experience."
-    out["roles"] = [{"role_id": "r0", "bullets": [{"source_id": "r0b0", "text": B[0].replace("n8n", "n8n and langgraph")}]}]
+    out["roles"] = [{"role_id": "r0", "bullets": [{"source_id": "r0b0", "text": B[0].replace("n8n", "n8n and langgraph")}], "groups": []}]
     t, info = assemble(facts, out, JOB_TEXT)
     assert t["summary"] == facts["summary"] and t["roles"][0]["bullets"] == [B[0]]
     assert any("summary: kept original" in r for r in info["reverts"])
