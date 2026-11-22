@@ -18,37 +18,8 @@
     </form>
   </div>
 </section>{% endif %}
-{% if rows %}
-<div class="table-wrapper" tabindex="0" role="region" aria-labelledby="jobs-caption">
-  <table>
-    <caption id="jobs-caption">Scored jobs, sorted by fit score</caption>
-    <thead>
-      <tr>
-        <th scope="col">Score</th><th scope="col">Company</th><th scope="col">Title</th>
-        <th scope="col">Source</th><th scope="col">Posted</th>
-        {% if not demo %}<th scope="col">Draft</th><th scope="col">Resume</th>{% endif %}
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in rows %}
-      <tr>
-        <td data-label="Score"><strong>{{ r.score }}</strong>{% if r.score_kind != "model" %} <small>rule score</small>{% endif %}</td>
-        <th scope="row" data-label="Company">{{ r.company }}</th>
-        <td data-label="Title"><a href="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}">{{ r.title }}</a></td>
-        <td data-label="Source">{{ r.sources }}{% include "_credit.html" %}</td>
-        <td data-label="Posted">{% if r.posted_iso %}{{ when(r.posted_iso, False) }}{% else %}{{ r.posted }}{% endif %}</td>
-        {% if not demo %}<td data-label="Draft">{% if r.draft %}<a href="/files/{{ r.draft|fileurl }}">Open</a>{% else %}—{% endif %}</td>
-        <td data-label="Resume">{% if r.resume %}<a href="/files/{{ r.resume|fileurl }}">Open</a>{% else %}—{% endif %}</td>{% endif %}
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<p>No scored jobs yet. Run <code>python -m jobfinder</code> and reload.</p>
-{% endif %}
 {% if not demo %}
-<details class="setup">
+<details class="setup"{% if not resume %} open{% endif %}>
   <summary>{% if resume %}Resume and search profile: {{ resume.file }} · read {{ when(resume.read_iso, False) }} · {{ resume.skills }} skill{{ "" if resume.skills == 1 else "s" }}{% else %}Resume and search profile: no resume yet, import one{% endif %}</summary>
   <section class="resume-panel" aria-labelledby="resume-h">
     <h2 id="resume-h">Your resume</h2>
@@ -86,5 +57,36 @@
     <button type="submit">Upload and read resume</button>
   </form>
 </details>
+{% endif %}
+{% if rows %}
+<div class="table-container">
+<div class="table-wrapper" tabindex="0" role="region" aria-labelledby="jobs-caption">
+  <table>
+    <caption id="jobs-caption">Scored jobs, sorted by fit score</caption>
+    <thead>
+      <tr>
+        <th scope="col">Score</th><th scope="col">Company</th><th scope="col">Title</th>
+        <th scope="col">Source</th><th scope="col">Posted</th>
+        {% if not demo %}<th scope="col">Draft</th><th scope="col">Resume</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td data-label="Score"><strong>{{ r.score }}</strong>{% if r.score_kind != "model" %} <small>rule score</small>{% endif %}</td>
+        <th scope="row" data-label="Company">{{ r.company }}</th>
+        <td data-label="Title"><a href="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}">{{ r.title }}</a></td>
+        <td data-label="Source">{{ r.sources }}{% include "_credit.html" %}</td>
+        <td data-label="Posted">{% if r.posted_iso %}{{ when(r.posted_iso, False) }}{% else %}{{ r.posted }}{% endif %}</td>
+        {% if not demo %}<td data-label="Draft">{% if r.draft %}<a href="/files/{{ r.draft|fileurl }}">Open</a>{% else %}—{% endif %}</td>
+        <td data-label="Resume">{% if r.resume %}<a href="/files/{{ r.resume|fileurl }}">Open</a>{% else %}—{% endif %}</td>{% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+</div>
+{% else %}
+<p>No scored jobs yet. Run <code>python -m jobfinder</code> and reload.</p>
 {% endif %}
 {% endblock %}

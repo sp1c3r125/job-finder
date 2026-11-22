@@ -42,8 +42,8 @@ def test_dashboard_details_closed_summary_and_table_order(tmp_path):
     assert "<details class=\"setup\">" in t and "<details class=\"setup\" open" not in t
     summary = t[t.index("<summary>"):t.index("</summary>")]
     assert "abc.md" in summary and "2026-11-23" in summary and "2 skills" in summary
-    assert t.index("Actions") < t.index("<table>") < t.index("<details")
-    assert t.index("<details") < t.index("Your resume") < t.index("Search profile") < t.index("Import a resume")
+    assert t.index("Actions") < t.index("<details") < t.index("<table>")
+    assert t.index("<details") < t.index("Your resume") < t.index("Search profile") < t.index("Import a resume") < t.index("<table>")
 
 
 def test_table_has_no_location_rule_and_uses_dash(tmp_path):
@@ -72,3 +72,19 @@ def test_rule_score_page_hides_empty_sections(tmp_path):
 def test_no_profile_falls_back_to_utc(tmp_path):
     t = make(tmp_path, profile=False).get("/job/ashby/1").text
     assert "2026-11-21 20:30 UTC</time>" in t
+
+
+def test_setup_details_open_without_resume_and_above_table(tmp_path):
+    c = make(tmp_path)
+    (tmp_path / "resume.json").unlink()
+    t = c.get("/").text
+    assert '<details class="setup" open>' in t
+    assert t.index("Actions") < t.index("<details") < t.index("<table>")
+    assert t.index("Your resume") < t.index("<table>")
+
+
+def test_stacked_table_drops_wrapper_scroll():
+    css = open("jobfinder/static/style.css", encoding="utf-8").read()
+    assert ".table-container { container-type: inline-size; }" in css
+    stacked = css[css.index("@container (width < 600px)"):]
+    assert ".table-wrapper { overflow: visible; max-block-size: none; }" in stacked

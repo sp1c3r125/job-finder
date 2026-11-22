@@ -105,3 +105,6 @@ Recorded decisions. Do not reopen without new evidence.
   - `details::details-content` and `name=` grouping: nothing to animate or exclude.
   - `hidden="until-found"`: `<details>` is preferred by the guide and Baseline.
   - Location rule stays in xlsx and dashboard.html (they are not the web UI).
+- Follow-ups after the browser check (same day): the setup `<details>` has `open` when there is no resume.json, so the upload form shows on first use,
+  and sits after Actions, above the jobs table. In the stacked table layout the wrapper drops `overflow` and `max-block-size`, so a phone page scrolls normally.
+  A container query cannot style its own container, so `container-type` moved to a new `.table-container` div around `.table-wrapper`. Guides: `html`, `search-hidden-content`, `responsive-table`, `size-aware-styling`. `legacy-scan`: 0 findings.
