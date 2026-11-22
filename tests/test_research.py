@@ -88,7 +88,7 @@ def test_one_call_per_title_web_tools_only_and_only_checked_urls_kept(logs):
     get = FakeGet({GOOD_URL: Resp(), "https://x.com/404": Resp(status=404)})
     stats = {}
     jobs = research.fetch(b, cfg, log, get=get, stats=stats)
-    assert [j.url for j in jobs] == [GOOD_URL] and stats == {"returned": 4, "link_ok": 1}
+    assert [j.url for j in jobs] == [GOOD_URL] and stats == {"returned": 4, "link_ok": 1, "finished": True}
     assert b.tools == [research.TOOLS, research.TOOLS] == ["WebSearch,WebFetch"] * 2 and len(b.calls) == 2
     assert "A" in b.calls[0][1] and "B" in b.calls[1][1]
     assert get.calls == [GOOD_URL, "https://x.com/404"]                 # the blocked link was not requested, the repeat not re-fetched
@@ -188,3 +188,66 @@ def test_research_switch_off_makes_no_research_call(tmp_path, monkeypatch):
     b = FakeBackend([])
     assert run_in(tmp_path, monkeypatch, False, b, FakeGet({})) == 0
     assert b.calls == []
+
+
+# --- undated results are kept with the first-seen date -------------------------------------------------------------
+
+def test_an_undated_result_gets_the_first_seen_date_and_a_dated_one_keeps_its_own():
+    from datetime import datetime, timezone
+    now = datetime(2026, 11, 23, 4, 0, tzinfo=timezone.utc)
+    u = research.to_job(posting(posted=""), "page", now)
+    assert u.undated and u.posted == now.isoformat()
+    assert research.to_job(posting(posted="not a date"), "page", now).undated      # unreadable counts as not shown
+    d = research.to_job(posting(posted="2026-11-20"), "page", now)
+    assert not d.undated and d.posted.startswith("2026-11-20")
+
+
+def test_run_keeps_an_undated_result_but_still_rejects_an_old_dated_one(tmp_path, monkeypatch, capsys):
+    import sqlite3
+    from jobfinder import db, report
+    results = [posting(posted=""), posting(url="https://acme.com/old", posted="2026-01-01")]
+    pages = {r["url"]: Resp() for r in results}
+    b = FakeBackend([{"results": results}, GOOD, {"note": "I build workflows."}])
+    assert run_in(tmp_path, monkeypatch, True, b, FakeGet(pages)) == 0
+    con = sqlite3.connect("t.db")
+    assert con.execute("select url, passed, undated from jobs order by url").fetchall() == [
+        ("https://acme.com/old", 0, 0), (GOOD_URL, 1, 1)]
+    row = report.rows(db.connect("t.db"))[0]
+    assert row["posted"] == "date not shown" and row["score"] == GOOD["fit_score"]
+
+
+def test_requalify_updates_a_saved_job(tmp_path):
+    from jobfinder import db
+    con = db.connect(str(tmp_path / "t.db"))
+    job = research.to_job(posting(posted=""), "page")
+    job.posted = ""
+    db.save(con, job, "2026-11-22T00:00:00+00:00", False, "no posted date")
+    db.requalify(con, job, "2026-11-22T00:00:00+00:00", True, True, "philippines")
+    assert con.execute("select posted, undated, passed, rule from jobs").fetchone() == (
+        "2026-11-22T00:00:00+00:00", 1, 1, "philippines")
+
+
+# --- research runs at most once a day (UTC) -----------------------------------------------------------------------
+
+def test_research_runs_once_a_day_and_a_cut_short_run_can_retry(tmp_path, monkeypatch, capsys):
+    import sqlite3
+    from datetime import datetime, timezone
+    day = datetime.now(timezone.utc).date().isoformat()
+    b = FakeBackend([{"results": []}])                       # one target title -> one research call
+    assert run_in(tmp_path, monkeypatch, True, b, FakeGet({})) == 0
+    assert len(b.calls) == 1
+    assert sqlite3.connect("t.db").execute("select value from settings where key='research_last_run'").fetchone() == (day,)
+    b2 = FakeBackend([])                                     # the same day again: no research call
+    assert main.run(["--db", "t.db"], backend=b2, http=object(), research_get=FakeGet({})) == 0
+    assert b2.calls == [] and "research: skipped" in capsys.readouterr().out
+    sqlite3.connect("t.db").execute("update settings set value='2000-01-01' where key='research_last_run'").connection.commit()
+    b3 = FakeBackend([{"results": []}])                      # a new day: it runs again
+    main.run(["--db", "t.db"], backend=b3, http=object(), research_get=FakeGet({}))
+    assert len(b3.calls) == 1
+
+
+def test_a_run_where_every_call_failed_is_not_marked_finished(tmp_path, monkeypatch):
+    import sqlite3
+    b = FakeBackend([RuntimeError("claude exited 1")])
+    assert run_in(tmp_path, monkeypatch, True, b, FakeGet({})) == 0
+    assert sqlite3.connect("t.db").execute("select count(*) from settings where key='research_last_run'").fetchone() == (0,)

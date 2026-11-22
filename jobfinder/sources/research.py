@@ -73,11 +73,16 @@ def check_link(result, get):
     return text, ""
 
 
-def _to_job(result, page_text):
+def to_job(result, page_text, now=None):
+    """A page that shows no date (or one we cannot read) is kept with posted = the first-seen date and undated=True.
+    A date the page does show is kept as it is, so research_max_age_days still applies to it."""
     posted = to_iso(result["posted"].strip()) if result["posted"].strip() else ""
+    undated = not posted
+    if undated:
+        posted = (now or datetime.now(timezone.utc)).isoformat()
     url = result["url"].strip()
     return Job("research", url, result["company"].strip(), result["title"].strip(), url, posted,
-               result["location"].strip(), True, page_text[:12000])
+               result["location"].strip(), True, page_text[:12000], undated=undated)
 
 
 def search_title(backend, title, log, today=None):
@@ -96,7 +101,8 @@ def search_title(backend, title, log, today=None):
 def fetch(backend, cfg, log, get=None, stats=None):
     """All verified research postings for the target titles. stats (a dict) gets 'returned' and 'link_ok' counts."""
     stats = stats if stats is not None else {}
-    stats.update(returned=0, link_ok=0)
+    stats.update(returned=0, link_ok=0, finished=False)
+    answered = stopped = 0
     titles = ((cfg.get("target") or {}).get("titles") or [])[:MAX_TITLES]
     if not titles:
         log("research_skipped", None, reason="no target titles")
@@ -107,10 +113,12 @@ def fetch(backend, cfg, log, get=None, stats=None):
     for title in titles:
         if getattr(backend, "stopped", False):
             log("research_stopped", None, reason="model refused (kill switch or daily cap)")
+            stopped = 1
             break
         results = search_title(backend, title, log)
         if results is None:
             continue
+        answered += 1
         stats["returned"] += len(results)
         for r in results:
             key = r["url"].strip()
@@ -122,7 +130,8 @@ def fetch(backend, cfg, log, get=None, stats=None):
                 log("research_dropped", None, query=title, company=r["company"], title=r["title"], url=key, reason=why)
                 continue
             stats["link_ok"] += 1
-            job = _to_job(r, text)
+            job = to_job(r, text)
             log("research_link_ok", job, query=title)
             jobs.append(job)
+    stats["finished"] = bool(answered) and not stopped     # a run the cap cut short, or where every call failed, may retry
     return jobs

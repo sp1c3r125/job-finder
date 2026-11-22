@@ -11,7 +11,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
   source TEXT, source_id TEXT, company TEXT, title TEXT, url TEXT, posted TEXT,
   location TEXT, remote INTEGER, description TEXT, also_seen_on TEXT DEFAULT '[]',
-  first_seen TEXT, passed INTEGER, rule TEXT, norm_key TEXT, expires TEXT DEFAULT '',
+  first_seen TEXT, passed INTEGER, rule TEXT, norm_key TEXT, expires TEXT DEFAULT '', undated INTEGER DEFAULT 0,
   PRIMARY KEY (source, source_id)
 );
 CREATE TABLE IF NOT EXISTS job_scores (
@@ -29,6 +29,8 @@ def connect(path="jobs.db"):
     cols = {r[1] for r in con.execute("PRAGMA table_info(jobs)")}
     if "expires" not in cols:                                   # jobs.db made before expiry was stored
         con.execute("ALTER TABLE jobs ADD COLUMN expires TEXT DEFAULT ''")
+    if "undated" not in cols:                                   # jobs.db made before undated research results
+        con.execute("ALTER TABLE jobs ADD COLUMN undated INTEGER DEFAULT 0")
     if {"score_json", "draft_path", "resume_path"} <= cols:     # jobs.db made before the split: copy once
         con.execute("INSERT OR IGNORE INTO job_scores SELECT source, source_id, score_json, draft_path, resume_path "
                     "FROM jobs WHERE score_json IS NOT NULL OR resume_path IS NOT NULL")
@@ -43,11 +45,18 @@ def is_seen(con, job):
 def save(con, job, now_iso, passed, rule, key=""):
     con.execute(
         "INSERT INTO jobs (source,source_id,company,title,url,posted,location,remote,description,also_seen_on,"
-        "first_seen,passed,rule,norm_key,expires) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "first_seen,passed,rule,norm_key,expires,undated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (job.source, job.source_id, job.company, job.title, job.url, job.posted, job.location,
          None if job.remote is None else int(job.remote), job.description, json.dumps(job.also_seen_on),
-         now_iso, int(passed), rule, key, job.expires),
+         now_iso, int(passed), rule, key, job.expires, int(job.undated)),
     )
+    con.commit()
+
+
+def requalify(con, job, posted, undated, passed, rule):
+    """Re-decide one stored job: new posted date, undated flag and pre-filter result."""
+    con.execute("UPDATE jobs SET posted=?, undated=?, passed=?, rule=? WHERE source=? AND source_id=?",
+                (posted, int(undated), int(passed), rule, job.source, job.source_id))
     con.commit()
 
 
@@ -111,7 +120,7 @@ def merge_duplicate(con, job, key):
 
 
 _SCORED = ("SELECT j.source,j.source_id,j.company,j.title,j.url,j.posted,j.rule,s.score_json,s.draft_path,"
-           "j.also_seen_on,s.resume_path,j.location,j.expires "
+           "j.also_seen_on,s.resume_path,j.location,j.expires,j.undated "
            "FROM jobs j JOIN job_scores s ON s.source=j.source AND s.source_id=j.source_id "
            "WHERE s.score_json IS NOT NULL AND (j.expires IS NULL OR j.expires='' OR j.expires>?)")
 

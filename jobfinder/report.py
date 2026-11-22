@@ -17,7 +17,7 @@ def row_from(r):
     s = json.loads(r["score_json"])
     names = [SOURCE_LABELS.get(x, x) for x in [r["source"]] + json.loads(r["also_seen_on"] or "[]")]
     return dict(source=names[0], sources=", ".join(names), source_key=r["source"], source_id=r["source_id"],
-                company=r["company"], title=r["title"], url=r["url"], posted=(r["posted"] or "")[:10],
+                company=r["company"], title=r["title"], url=r["url"], posted="date not shown" if r.get("undated") else (r["posted"] or "")[:10],
                 rule=r["rule"] or "", score=s["fit_score"], evidence="; ".join(s["matching_evidence"]),
                 gaps="; ".join(s["gaps"]), deal_breakers="; ".join(s["deal_breakers"]),
                 draft=r["draft_path"] or "", resume=r["resume_path"] or "", summary=s["summary"])

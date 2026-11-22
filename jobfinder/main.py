@@ -80,9 +80,16 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
     jobs, returned = collect(http, cfg, companies, log)
     research_stats = {}
     if cfg.get("research") and not args.no_model:
-        # One model call per target title (counted against the daily cap); every link is checked in code before it is kept.
-        jobs += research_source.fetch(backend_once(), cfg, log, get=research_get, stats=research_stats)
-        returned["research"] = research_stats["returned"]
+        today = datetime.now(timezone.utc).date().isoformat()
+        if db.get_setting(con, "research_last_run") == today:      # at most one research run per day (UTC)
+            log("research_skipped", None, reason="already finished today", day=today)
+            print("research: skipped, a research run already finished today (UTC)")
+        else:
+            # One model call per target title (counted against the daily cap); every link is checked in code before it is kept.
+            jobs += research_source.fetch(backend_once(), cfg, log, get=research_get, stats=research_stats)
+            returned["research"] = research_stats["returned"]
+            if research_stats["finished"]:
+                db.set_setting(con, "research_last_run", today)
     passed_by_source = Counter()
     now = datetime.now(timezone.utc)
     before = len(jobs)
