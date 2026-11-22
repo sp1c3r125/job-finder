@@ -28,7 +28,10 @@ Recorded decisions. Do not reopen without new evidence.
 ## Source terms
 - Himalayas: visible link to Himalayas, `applicationLink` unchanged, expired jobs removed, no passing of jobs to other boards.
 - Remote OK: link back to the listing and name Remote OK. No logo.
-- We Work Remotely: terms not verified on the official page (it returned 403 to automated fetches). Check by hand before M3.
+- Remote.co is not a source. It has no RSS feed or API, and its Terms of Service (remote.co/tos, sections 8(d) and 9(f)) ban bots,
+  scraping and aggregation without written consent. Check it by hand or with its email alerts.
+- We Work Remotely: the RSS feed is used for personal use only, with links back to WWR, as its RSS page asks. WWR's API terms forbid
+  "a job advertising or job search service" and storing its data, so turn WWR off before M4 unless WWR gives written permission.
 
 ## Open
 - Browser baseline: Baseline Widely available (set in CLAUDE.md).
