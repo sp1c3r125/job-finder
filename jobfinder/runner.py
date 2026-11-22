@@ -27,3 +27,10 @@ class Runner:
 
     def status(self):
         return dict(self.state)
+
+    def take_status(self):
+        """Like status(), but a finished result (done or failed) is returned once and then cleared."""
+        s = dict(self.state)
+        if s["state"] in ("done", "failed") and self.state == s:
+            self.state = {"state": "idle", "label": "", "message": ""}
+        return s

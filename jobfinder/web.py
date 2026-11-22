@@ -59,6 +59,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     db_path = db_path or os.environ.get("JOBFINDER_DB", str(ROOT / "jobs.db"))
     base = Path(base_dir or ROOT)
     log = make_logger(log_path)
+    resume_json = base / resume_mod.RESUME_JSON         # the project folder, not the current folder
     runner = Runner()
     token = secrets.token_urlsafe(32)
     hosts = cfg.get("allowed_hosts") or ["127.0.0.1", "localhost"]
@@ -93,12 +94,12 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
 
     def resume_summary():
         """What the dashboard shows about resume.json (None when there is none)."""
-        res = resume_mod.load_resume()
+        res = resume_mod.load_resume(resume_json)
         if not res:
             return None
         read = res.get("imported_at")
         if not read:
-            read = datetime.fromtimestamp(os.path.getmtime(resume_mod.RESUME_JSON), timezone.utc).isoformat(timespec="seconds")
+            read = datetime.fromtimestamp(os.path.getmtime(resume_json), timezone.utc).isoformat(timespec="seconds")
         return {"file": res.get("source_file") or "unknown", "read": read.replace("T", " ").replace("+00:00", " UTC"),
                 "name": res.get("name") or "not found", "roles": len(res.get("roles", [])),
                 "skills": len(res.get("skills", [])), "keywords": ", ".join(res.get("search_keywords", [])),
@@ -107,10 +108,12 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     def page(request, name, **ctx):
         con = db.connect(db_path)
         try:
-            ctx.update(csrf=token, status=runner.status(), calls=db.calls_today(con), cap=cap,
+            ctx.update(csrf=token, status=runner.take_status(), calls=db.calls_today(con), cap=cap,
                        kill=killed(con, kill_file), demo=demo,
-                       has_resume=not demo and resume_mod.load_resume() is not None,
+                       has_resume=not demo and resume_mod.load_resume(resume_json) is not None,
                        notice=NOTICES.get(request.query_params.get("notice", "")))
+            if ctx["status"]["state"] != "running" and request.query_params.get("notice") == "started":
+                ctx["notice"] = None        # the task has ended; its result is shown below instead
         finally:
             con.close()
         return templates.TemplateResponse(request, name, ctx)
@@ -120,7 +123,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
 
     def default_run():
         from . import main
-        rc = main.run(["--db", db_path], backend=capped())
+        rc = main.run(["--db", db_path], backend=capped(), root=base)
         return "run finished" if rc == 0 else f"run exited with {rc}"
 
     @app.get("/")
@@ -185,7 +188,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
 
         def work():
             try:
-                got = resume_mod.import_resume(capped(), dest, log)
+                got = resume_mod.import_resume(capped(), dest, log, resume_json)
             except ValueError:                           # unreadable file: do not keep it
                 dest.unlink(missing_ok=True)
                 raise
@@ -213,7 +216,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     @app.post("/job/{source}/{source_id:path}/tailor")
     def tailor(request: Request, source: str, source_id: str, csrf_token: str = Form("")):
         guard_post(request, csrf_token)
-        res = resume_mod.load_resume()
+        res = resume_mod.load_resume(resume_json)
         if not res:
             return back(notice="no_resume")
         con = db.connect(db_path)

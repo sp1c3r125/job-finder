@@ -2,6 +2,7 @@
 Never sends or applies. Extra commands: import-resume FILE, tailor JOB_URL."""
 import argparse
 import sys
+from pathlib import Path
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -42,7 +43,8 @@ def collect(http, cfg, companies, log):
     return jobs, returned
 
 
-def run(argv=None, backend=None, http=None):
+def run(argv=None, backend=None, http=None, root=None):
+    """root: the folder holding resume.json, resume/ and profile.yaml (default: the current folder)."""
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv and argv[0] in COMMANDS:
         return COMMANDS[argv[0]](argv[1:], backend)
@@ -55,6 +57,8 @@ def run(argv=None, backend=None, http=None):
     with open("companies.yaml", encoding="utf-8") as f:
         companies = yaml.safe_load(f)["companies"]
     log = make_logger()
+    root = Path(root) if root else Path(".")
+    resume_json, drop_dir, profile_yaml = root / resume.RESUME_JSON, root / resume.DROP_DIR, root / "profile.yaml"
 
     def backend_once():
         nonlocal backend
@@ -62,16 +66,18 @@ def run(argv=None, backend=None, http=None):
         return backend
 
     if not args.no_model:
-        resume.import_if_new(backend_once, log)          # a new file in resume/ is read before the search
-    res = resume.load_resume()
+        resume.import_if_new(backend_once, log, drop_dir, resume_json)          # a new file in resume/ is read before the search
+    res = resume.load_resume(resume_json)
     cfg = resume.with_resume_keywords(cfg, res)
     if res:
         log("keywords", None, keywords=cfg["keywords"])
+    # Load the profile before fetching: a run with no profile and no resume stops here, before it saves any job.
+    profile_text = None if args.no_model else load_profile(profile_yaml, resume_json)
     http = http or HttpClient(cfg["user_agent"], cfg["request_delay_seconds"])
     con = db.connect(args.db)
 
     jobs, returned = collect(http, cfg, companies, log)
-    passed_by_source, new_passed = Counter(), []
+    passed_by_source = Counter()
     now = datetime.now(timezone.utc)
     before = len(jobs)
     jobs = dedupe(jobs)
@@ -87,7 +93,6 @@ def run(argv=None, backend=None, http=None):
         log("prefilter_pass" if ok else "prefilter_reject", job, reason=rule)
         if ok:
             passed_by_source[job.source] += 1
-            new_passed.append(job)
 
     print(f"{'source':<12}{'returned':>9}{'passed':>8}")
     for s in returned:
@@ -95,10 +100,12 @@ def run(argv=None, backend=None, http=None):
     if args.no_model:
         return 0
 
-    profile_text = load_profile()
     backend = backend_once()
-    tailored = 0
-    for job in new_passed:
+    tailored = scored = 0
+    # Every saved job that passed the pre-filter and has no score yet, not only the new ones:
+    # an earlier run may have saved jobs and stopped before scoring them.
+    to_score = db.unscored_passed(con, now, cfg["max_age_days"])
+    for job in to_score:
         if getattr(backend, "stopped", False):       # kill switch or daily cap: stop, do not try every job
             log("run_stopped", None, reason="model refused")
             print("model calls refused (kill switch or daily cap): stopped early")
@@ -117,12 +124,13 @@ def run(argv=None, backend=None, http=None):
                     resume_path = write_tailored(*got, job)
                     tailored += 1
         db.set_score(con, job, score, draft_path, resume_path)
+        scored += 1
         log("scored", job, fit_score=score["fit_score"], deal_breakers=score["deal_breakers"], draft=draft_path,
             resume=resume_path)
     rs = report.rows(con)
     report.write_xlsx(rs)
     report.write_dashboard(rs)
-    print(f"scored {len(new_passed)} new jobs, tailored {tailored} resumes; report.xlsx and dashboard.html written")
+    print(f"scored {scored} of {len(to_score)} waiting jobs, tailored {tailored} resumes; {len(to_score) - scored} left for the next run; report.xlsx and dashboard.html written")
     return 0
 
 

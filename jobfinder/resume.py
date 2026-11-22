@@ -126,7 +126,8 @@ def newest_drop(drop_dir=DROP_DIR):
     d = Path(drop_dir)
     if not d.is_dir():
         return None
-    files = [f for f in d.iterdir() if f.is_file() and f.suffix.lower() in EXTS and not f.name.startswith("~$")]
+    files = [f for f in d.iterdir() if f.is_file() and f.suffix.lower() in EXTS and not f.name.startswith("~$")
+             and f.name.lower() != "readme.md"]
     return max(files, key=lambda f: f.stat().st_mtime, default=None)
 
 

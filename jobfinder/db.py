@@ -1,7 +1,7 @@
 """All SQL lives here. Nothing else in the project may import sqlite3 or write SQL."""
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from .models import Job
 
@@ -73,6 +73,26 @@ def find_job(con, url):
     if not row:
         return None
     return Job(*row[:7], None if row[7] is None else bool(row[7]), row[8])
+
+
+def unscored_passed(con, now, max_age_days):
+    """Every stored job that passed the pre-filter, has no job_scores row, is not expired and is not older than
+    max_age_days. Oldest first_seen first. `now` is a timezone-aware datetime."""
+    cur = con.execute(
+        "SELECT j.source,j.source_id,j.company,j.title,j.url,j.posted,j.location,j.remote,j.description,j.expires "
+        "FROM jobs j LEFT JOIN job_scores s ON s.source=j.source AND s.source_id=j.source_id "
+        "WHERE j.passed=1 AND s.source_id IS NULL AND (j.expires IS NULL OR j.expires='' OR j.expires>?) "
+        "ORDER BY j.first_seen", (now.isoformat(),))
+    cutoff = now - timedelta(days=max_age_days)
+    out = []
+    for r in cur.fetchall():
+        try:
+            if not r[5] or datetime.fromisoformat(r[5]) < cutoff:
+                continue
+        except ValueError:
+            continue
+        out.append(Job(*r[:7], None if r[7] is None else bool(r[7]), r[8], expires=r[9] or ""))
+    return out
 
 
 def merge_duplicate(con, job, key):
