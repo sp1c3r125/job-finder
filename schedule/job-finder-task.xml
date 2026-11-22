@@ -1,6 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-16"?>
 <!-- Import (PowerShell, from C:\dev\job-finder):
      Register-ScheduledTask -TaskName JobFinder -Xml (Get-Content schedule\job-finder-task.xml -Raw)
+     Use Register-ScheduledTask, not schtasks /xml (schtasks needs a UTF-16 file on disk).
      Runs every day at 07:30 local time. -->
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers>
