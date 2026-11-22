@@ -35,7 +35,7 @@ SECURITY_HEADERS = {
 DOWNLOAD_DIRS = ("drafts", "resumes")      # only these folders can be downloaded
 MAX_UPLOAD = 5 * 1024 * 1024
 MAGIC = {".pdf": b"%PDF", ".docx": b"PK"}  # cheap wrong-type check for binary formats
-NOTICES = {"started": "Started. This page refreshes while it runs.",
+NOTICES = {"started": "Started. Select Refresh status to see progress.",
            "busy": "Something is already running. Wait for it to finish.",
            "kill_on": "Kill switch is ON: no model calls will be made.", "kill_off": "Kill switch is off.",
            "no_resume": "Import a resume first.", "no_job": "That job is not in the database."}

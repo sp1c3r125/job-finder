@@ -26,11 +26,11 @@ small { color: var(--muted); }
 
 .table-wrapper { container-type: inline-size; overflow: auto; max-block-size: min(70dvh, 40rem); margin-block-start: 1.5rem; border: 1px solid var(--line); }
 .table-wrapper:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
-table { border-collapse: collapse; width: 100%; }
+table { border-collapse: separate; border-spacing: 0; width: 100%; }
 caption { text-align: left; padding: 0.5rem; font-weight: 600; }
 th, td { padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
-thead th { position: sticky; top: 0; background: var(--head); }
-tbody th { position: sticky; left: 0; background: var(--bg); font-weight: 600; }
+thead th { position: sticky; top: 0; background: var(--head); z-index: 2; }
+tbody th { position: sticky; left: 0; background: var(--bg); font-weight: 600; z-index: 1; }
 
 @container (width < 600px) {
   thead { display: none; }
