@@ -23,11 +23,18 @@ def location_rule(job, allow):
     return None
 
 
+def max_age_days(cfg, source):
+    """Research postings are asked for over the last 7 days, so that source gets its own window (never shorter)."""
+    if source == "research":
+        return max(cfg["max_age_days"], cfg.get("research_max_age_days", 7))
+    return cfg["max_age_days"]
+
+
 def prefilter(job, cfg, now=None):
     now = now or datetime.now(timezone.utc)
     if not job.posted:
         return False, "no posted date"
-    if datetime.fromisoformat(job.posted) < now - timedelta(days=cfg["max_age_days"]):
+    if datetime.fromisoformat(job.posted) < now - timedelta(days=max_age_days(cfg, job.source)):
         return False, "older than max_age_days"
     is_remote = job.remote if job.remote is not None else ("remote" in job.location.lower() or "remote" in job.title.lower())
     if not is_remote:

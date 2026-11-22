@@ -13,11 +13,11 @@ from .guard import capped_default
 from .drafts import draft_note, eligible, write_draft
 from .http import HttpClient
 from .log import make_logger
-from .prefilter import prefilter
+from .prefilter import max_age_days, prefilter
 from .resume_docx import write_tailored
 from .scoring import load_profile, score_job
 from .dedupe import dedupe, norm_key
-from .sources import AGGREGATORS, ATS
+from .sources import AGGREGATORS, ATS, research as research_source
 from .tailor import tailor_resume
 
 
@@ -43,7 +43,7 @@ def collect(http, cfg, companies, log):
     return jobs, returned
 
 
-def run(argv=None, backend=None, http=None, root=None):
+def run(argv=None, backend=None, http=None, root=None, research_get=None):
     """root: the folder holding resume.json, resume/ and profile.yaml (default: the current folder)."""
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv and argv[0] in COMMANDS:
@@ -78,6 +78,11 @@ def run(argv=None, backend=None, http=None, root=None):
     con = db.connect(args.db)
 
     jobs, returned = collect(http, cfg, companies, log)
+    research_stats = {}
+    if cfg.get("research") and not args.no_model:
+        # One model call per target title (counted against the daily cap); every link is checked in code before it is kept.
+        jobs += research_source.fetch(backend_once(), cfg, log, get=research_get, stats=research_stats)
+        returned["research"] = research_stats["returned"]
     passed_by_source = Counter()
     now = datetime.now(timezone.utc)
     before = len(jobs)
@@ -98,14 +103,18 @@ def run(argv=None, backend=None, http=None, root=None):
     print(f"{'source':<12}{'returned':>9}{'passed':>8}")
     for s in returned:
         print(f"{s:<12}{returned[s]:>9}{passed_by_source[s]:>8}")
+    if research_stats:
+        print(f"research: {research_stats['returned']} results returned, {research_stats['link_ok']} passed the link check "
+              f"(failures are in logs/decisions.jsonl as research_dropped)")
     if args.no_model:
         return 0
 
     backend = backend_once()
     tailored = scored = 0
+    scored_by_source = Counter()
     # Every saved job that passed the pre-filter and has no score yet, not only the new ones:
     # an earlier run may have saved jobs and stopped before scoring them.
-    to_score = db.unscored_passed(con, now, cfg["max_age_days"])
+    to_score = db.unscored_passed(con, now, cfg["max_age_days"], {"research": max_age_days(cfg, "research")})
     for job in to_score:
         if getattr(backend, "stopped", False):       # kill switch or daily cap: stop, do not try every job
             log("run_stopped", None, reason="model refused")
@@ -126,8 +135,11 @@ def run(argv=None, backend=None, http=None, root=None):
                     tailored += 1
         db.set_score(con, job, score, draft_path, resume_path)
         scored += 1
+        scored_by_source[job.source] += 1
         log("scored", job, fit_score=score["fit_score"], deal_breakers=score["deal_breakers"], draft=draft_path,
             resume=resume_path)
+    if research_stats:
+        print(f"research: {passed_by_source['research']} passed the pre-filter, {scored_by_source['research']} scored")
     rs = report.rows(con)
     report.write_xlsx(rs)
     report.write_dashboard(rs)

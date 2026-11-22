@@ -43,8 +43,9 @@ class FakeBackend:
     def __init__(self, responses):
         self.responses, self.calls = list(responses), []
 
-    def complete(self, system, user, schema=None, tool_name=None, max_tokens=None):
+    def complete(self, system, user, schema=None, tool_name=None, max_tokens=None, tools=None, timeout=None):
         self.calls.append((system, user))
+        self.tools = getattr(self, "tools", []) + [tools]
         r = self.responses.pop(0)
         if isinstance(r, Exception):
             raise r

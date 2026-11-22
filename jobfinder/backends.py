@@ -35,7 +35,9 @@ class ApiBackend:
         self.client = client
         self.model = model or os.environ.get("MODEL", DEFAULT_MODEL)
 
-    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name="submit_result", max_tokens=1500):
+    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name="submit_result", max_tokens=1500, tools=None, timeout=None):
+        if tools:
+            raise NotImplementedError("web research needs BACKEND=claude-code (the api backend has no web tools here)")
         resp = self.client.messages.create(
             model=self.model, max_tokens=max_tokens, system=system,
             messages=[{"role": "user", "content": user}],
@@ -53,15 +55,19 @@ class ClaudeCodeBackend:
         self.model = model or os.environ.get("MODEL")
         self.run = run
 
-    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name=None, max_tokens=None):
+    def complete(self, system, user, schema=SCORE_SCHEMA, tool_name=None, max_tokens=None, tools=None, timeout=None):
         # max_tokens is ignored: claude -p sets its own output limit.
+        # tools: None = no tools at all. A string such as "WebSearch,WebFetch" turns on exactly those tools and
+        # pre-approves them; dontAsk denies everything else.
         cmd = ["claude", "-p", "--output-format", "json", "--json-schema", json.dumps(schema),
-               "--tools", "", "--no-session-persistence"]
+               "--tools", tools or "", "--no-session-persistence"]
+        if tools:
+            cmd += ["--allowedTools", tools, "--permission-mode", "dontAsk"]
         if self.model:
             cmd += ["--model", self.model]
         # Everything goes through stdin so job text never touches the command line.
         proc = self.run(cmd, input=f"{system}\n\n{user}", capture_output=True, text=True,
-                        encoding="utf-8", timeout=300)
+                        encoding="utf-8", timeout=timeout or 300)
         if proc.returncode != 0:
             raise RuntimeError(f"claude exited {proc.returncode}: {proc.stderr[:300]}")
         outer = json.loads(proc.stdout)

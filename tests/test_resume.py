@@ -1,6 +1,8 @@
 import copy
 import json
 import shutil
+
+import yaml
 import sqlite3
 from pathlib import Path
 
@@ -194,7 +196,9 @@ def test_old_db_gets_score_table(tmp_path):
 
 def test_daily_run_reads_dropped_resume_then_tailors(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    shutil.copy(ROOT / "config.yaml", ".")                     # no profile.yaml: the resume is the profile
+    cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
+    cfg["research"] = False                                    # this test is about resume import, not the web search
+    Path("config.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")      # no profile.yaml: the resume is the profile
     Path("companies.yaml").write_text("companies:\n  - {name: Acme, source: ashby, board: acme}\n")
     Path("resume").mkdir()
     shutil.copy(SAMPLE, "resume/my-resume.md")
