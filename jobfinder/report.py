@@ -16,14 +16,17 @@ def row_from(r):
     """One report row (display fields) from a raw scored-job dict returned by db.py."""
     s = json.loads(r["score_json"]) if r["score_json"] else None
     rj = json.loads(r["rule_json"]) if r.get("rule_json") else {"reasons": [], "deal_breakers": []}
+    evidence = s["matching_evidence"] if s else []
+    gaps = s["gaps"] if s else []
+    breakers = s["deal_breakers"] if s else rj["deal_breakers"]
     names = [SOURCE_LABELS.get(x, x) for x in [r["source"]] + json.loads(r["also_seen_on"] or "[]")]
     return dict(source=names[0], sources=", ".join(names), source_key=r["source"], source_id=r["source_id"],
                 company=r["company"], title=r["title"], url=r["url"], posted="date not shown" if r.get("undated") else (r["posted"] or "")[:10],
+                posted_iso="" if r.get("undated") else (r["posted"] or ""),
                 rule=r["rule"] or "", score=s["fit_score"] if s else r["rule_score"],
                 score_kind="model" if s else "rule", rule_score=r.get("rule_score"), rule_reasons=rj["reasons"],
-                evidence="; ".join(s["matching_evidence"]) if s else "",
-                gaps="; ".join(s["gaps"]) if s else "",
-                deal_breakers="; ".join(s["deal_breakers"] if s else rj["deal_breakers"]),
+                evidence="; ".join(evidence), gaps="; ".join(gaps), deal_breakers="; ".join(breakers),
+                evidence_list=list(evidence), gaps_list=list(gaps), deal_breakers_list=list(breakers),
                 draft=r["draft_path"] or "", resume=r["resume_path"] or "",
                 summary=s["summary"] if s else "Scored by plain rules only; the model has not read this job.")
 

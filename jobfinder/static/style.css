@@ -42,18 +42,30 @@ tbody th { position: sticky; left: 0; background: var(--bg); font-weight: 600; z
 }
 
 .status p { margin: 0.25rem 0; }
-.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-block-end: 1rem; }
+.actions { display: flex; flex-wrap: wrap; flex-wrap: balance; gap: 0.75rem; margin-block-end: 1rem; }
 .upload { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; max-width: 30rem; }
-.upload h3 { margin: 0.5rem 0 0.25rem; }
 button, input[type="file"] { font: inherit; font-size: max(1rem, 1em); min-height: 48px; box-sizing: border-box; }
 button { padding: 0.5rem 1rem; cursor: pointer; color: var(--fg); background: var(--head); border: 1px solid var(--muted); border-radius: 0.25rem; }
 button:focus-visible, input:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
 
 .banner { margin: 0; padding: 0.5rem 0.75rem; border: 1px solid var(--muted); background: var(--head); }
 
-.resume-panel { max-width: 40rem; margin-block: 1rem; }
-.resume-panel dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0; }
-.resume-panel dt { font-weight: 600; }
-.resume-panel dd { margin: 0; overflow-wrap: anywhere; }
+.resume-panel { max-width: 40rem; margin-block: 1rem; container-type: inline-size; }
+.resume-panel h2, .upload h2 { font-size: 1.125rem; margin-block: 0.5rem 0.25rem; }
+/* Narrow panels: label above value. Values wrap at word breaks; only a very long unbroken string is split. */
+.resume-panel dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.125rem 1rem; margin: 0; }
+.resume-panel dt { font-weight: 600; color: var(--muted); }
+.resume-panel dd { margin: 0 0 0.5rem; overflow-wrap: break-word; }
 .resume-panel ul { margin: 0; padding-inline-start: 1.25rem; }
+/* Wide panels: label beside value. */
+@container (inline-size >= 32rem) {
+  .resume-panel dl { grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); }
+  .resume-panel dd { margin: 0; }
+}
 .upload { margin-block-end: 2rem; }
+
+.setup { margin-block-start: 1.5rem; border: 1px solid var(--line); padding-inline: 0.75rem; }
+/* Keep the default display: list-item so the disclosure triangle stays visible. */
+.setup > summary { cursor: pointer; padding-block: 0.75rem; font-weight: 600; overflow-wrap: break-word; }
+.setup > summary:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+.setup[open] > summary { border-block-end: 1px solid var(--line); }
