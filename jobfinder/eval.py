@@ -9,6 +9,7 @@ import argparse
 import json
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -72,6 +73,17 @@ def verdict(runs, calls_per_run):
     return out
 
 
+def write_verdict(path, checks, threshold):
+    """Append one line to the eval log: date, PASS or FAIL, score (checks passed of total) and the fit-score threshold."""
+    passed = sum(1 for _, ok in checks if ok)
+    rec = {"date": datetime.now(timezone.utc).date().isoformat(), "event": "eval_verdict",
+           "verdict": "PASS" if passed == len(checks) else "FAIL", "score": f"{passed}/{len(checks)}",
+           "threshold": threshold}
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec) + "\n")
+    return rec
+
+
 def main(argv=None, backend=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--runs", type=int, default=2)
@@ -95,7 +107,9 @@ def main(argv=None, backend=None):
         calls.append(len(jobs) + 2 * runs[-1]["eligible"])
         print(f"run {i + 1}: {runs[-1]}")
     ok = True
-    for name, passed in verdict(runs, calls):
+    checks = verdict(runs, calls)
+    write_verdict("logs/eval.jsonl", checks, threshold)
+    for name, passed in checks:
         print(("PASS  " if passed else "FAIL  ") + name)
         ok = ok and passed
     return 0 if ok else 1
