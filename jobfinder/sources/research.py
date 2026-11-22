@@ -2,6 +2,7 @@
 The model proposes postings; plain code checks every one before it is saved. A URL from the model is never saved
 unchecked: it must return HTTP 200 without a login, the page must contain the job title, and the domain must
 not be an aggregator. Failures are dropped and logged."""
+import json
 import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -10,7 +11,7 @@ import requests
 
 from ..checks import check_shape, norm
 from ..models import Job
-from ..text import html_to_text, to_iso
+from ..text import clean_text, html_to_text, to_iso
 
 TOOLS = "WebSearch,WebFetch"
 BLOCKED_DOMAINS = ("linkedin.com", "indeed.com", "glassdoor.com", "wellfound.com", "workatastartup.com", "remote.co")
@@ -43,46 +44,89 @@ def default_get(url, user_agent):
     return requests.get(url, headers={"User-Agent": user_agent}, timeout=30, allow_redirects=True)
 
 
+_LDJSON = re.compile(r"(?is)<script[^>]+type=[\"']?application/ld\+json[\"']?[^>]*>(.*?)</script>")
+
+
+def _walk(x):
+    if isinstance(x, list):
+        for i in x:
+            yield from _walk(i)
+    elif isinstance(x, dict):
+        yield x
+        yield from _walk(x.get("@graph") or [])
+
+
+def job_posting(body):
+    """The first schema.org JobPosting in the page's ld+json blocks (also inside "@graph" or a list), or None."""
+    for m in _LDJSON.finditer(body):
+        try:
+            data = json.loads(m.group(1).strip())
+        except ValueError:
+            continue
+        for d in _walk(data):
+            t = d.get("@type")
+            if t == "JobPosting" or (isinstance(t, list) and "JobPosting" in t):
+                return d
+    return None
+
+
 def check_link(result, get):
     """(page_text, "") if the posting link is good, else ("", reason). `get(url)` returns a response-like object."""
+    info, why = check_page(result, get)
+    return info["text"], why
+
+
+def check_page(result, get):
+    """({text, posted, expires}, "") if the posting link is good, else (empty info, reason).
+    With a JobPosting block, its description, datePosted and validThrough are used; otherwise the cleaned page text."""
+    none = {"text": "", "posted": "", "expires": ""}
     url = result["url"].strip()
     parts = urlparse(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
-        return "", "not an http(s) link"
+        return none, "not an http(s) link"
     d = blocked(url)
     if d:
-        return "", f"blocked domain {d}"
+        return none, f"blocked domain {d}"
     try:
         resp = get(url)
     except Exception as e:  # noqa: BLE001
-        return "", f"request failed: {type(e).__name__}"
+        return none, f"request failed: {type(e).__name__}"
     final = str(getattr(resp, "url", url) or url)
     d = blocked(final)
     if d:
-        return "", f"redirects to blocked domain {d}"
+        return none, f"redirects to blocked domain {d}"
     if resp.status_code != 200:
-        return "", f"HTTP {resp.status_code}"
+        return none, f"HTTP {resp.status_code}"
     if _LOGIN_PATH.search(urlparse(final).path or ""):
-        return "", "redirects to a login page"
+        return none, "redirects to a login page"
     body = resp.text or ""
     if re.search(r"(?i)<input[^>]+type=[\"']?password", body):
-        return "", "page asks for a login"
-    if f" {norm(result['title'])} " not in f" {norm(body)} ":       # raw HTML: the title may only be in <title>/meta
-        return "", "page does not contain the job title"
-    text = html_to_text(re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", body))
-    return text, ""
+        return none, "page asks for a login"
+    jp = job_posting(body)                                             # read before scripts are stripped
+    want = f" {norm(result['title'])} "
+    on_page = want in f" {norm(body)} "                                # raw HTML: the title may only be in <title>/meta
+    if jp:
+        on_page = on_page or want in f" {norm(str(jp.get('title') or ''))} "
+    if not on_page:
+        return none, "page does not contain the job title"
+    if jp:
+        text = clean_text(html_to_text(str(jp.get("description") or "")))
+        if text:
+            return {"text": text, "posted": to_iso(jp.get("datePosted")), "expires": to_iso(jp.get("validThrough"))}, ""
+    text = clean_text(html_to_text(re.sub(r"(?is)<(script|style|head)[^>]*>.*?</\1>", " ", body)))
+    return {"text": text, "posted": "", "expires": ""}, ""
 
 
-def to_job(result, page_text, now=None):
+def to_job(result, page_text, now=None, posted="", expires=""):
     """A page that shows no date (or one we cannot read) is kept with posted = the first-seen date and undated=True.
     A date the page does show is kept as it is, so research_max_age_days still applies to it."""
-    posted = to_iso(result["posted"].strip()) if result["posted"].strip() else ""
+    posted = to_iso(posted) or (to_iso(result["posted"].strip()) if result["posted"].strip() else "")   # the page's own date wins
     undated = not posted
     if undated:
         posted = (now or datetime.now(timezone.utc)).isoformat()
     url = result["url"].strip()
     return Job("research", url, result["company"].strip(), result["title"].strip(), url, posted,
-               result["location"].strip(), True, page_text[:12000], undated=undated)
+               result["location"].strip(), True, page_text[:12000], undated=undated, expires=to_iso(expires))
 
 
 def search_title(backend, title, log, today=None):
@@ -125,12 +169,12 @@ def fetch(backend, cfg, log, get=None, stats=None):
             if key in seen:
                 continue
             seen.add(key)
-            text, why = check_link(r, get)
+            info, why = check_page(r, get)
             if why:
                 log("research_dropped", None, query=title, company=r["company"], title=r["title"], url=key, reason=why)
                 continue
             stats["link_ok"] += 1
-            job = to_job(r, text)
+            job = to_job(r, info["text"], posted=info["posted"], expires=info["expires"])
             log("research_link_ok", job, query=title)
             jobs.append(job)
     stats["finished"] = bool(answered) and not stopped     # a run the cap cut short, or where every call failed, may retry
