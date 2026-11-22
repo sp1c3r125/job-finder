@@ -1,12 +1,29 @@
-# Board names checked against each public API (HTTP 200) on 2026-11-21.
+# Board names checked against each public API (HTTP 200, JSON, at least 1 job) on 2026-11-22.
 companies:
-  - {name: Anthropic,  source: greenhouse, board: anthropic}
-  - {name: Scale AI,   source: greenhouse, board: scaleai}
-  - {name: Palantir,   source: lever,      board: palantir}
-  - {name: OpenAI,     source: ashby,      board: openai}
-  - {name: Cohere,     source: ashby,      board: cohere}
-  - {name: Perplexity, source: ashby,      board: perplexity}
-  - {name: LangChain,  source: ashby,      board: langchain}
-  - {name: Sierra,     source: ashby,      board: sierra}
-  - {name: n8n,        source: ashby,      board: n8n}
-  - {name: Zapier,     source: ashby,      board: zapier}
+  - {name: Anthropic,     source: greenhouse, board: anthropic}
+  - {name: Scale AI,      source: greenhouse, board: scaleai}
+  - {name: Palantir,      source: lever     , board: palantir}
+  - {name: OpenAI,        source: ashby     , board: openai}
+  - {name: Cohere,        source: ashby     , board: cohere}
+  - {name: Perplexity,    source: ashby     , board: perplexity}
+  - {name: LangChain,     source: ashby     , board: langchain}
+  - {name: Sierra,        source: ashby     , board: sierra}
+  - {name: n8n,           source: ashby     , board: n8n}
+  - {name: Zapier,        source: ashby     , board: zapier}
+  - {name: Glean,         source: greenhouse, board: gleanwork}
+  - {name: Databricks,    source: greenhouse, board: databricks}
+  - {name: Anyscale,      source: ashby     , board: anyscale}
+  - {name: ElevenLabs,    source: ashby     , board: elevenlabs}
+  - {name: Harvey,        source: ashby     , board: harvey}
+  - {name: Decagon,       source: ashby     , board: decagon}
+  - {name: Clay,          source: ashby     , board: claylabs}
+  - {name: Vercel,        source: greenhouse, board: vercel}
+  - {name: Pinecone,      source: ashby     , board: pinecone}
+  - {name: Descript,      source: greenhouse, board: descript}
+  - {name: Airtable,      source: greenhouse, board: airtable}
+  - {name: Make,          source: greenhouse, board: make}
+  - {name: Replit,        source: ashby     , board: replit}
+  - {name: Hex,           source: ashby     , board: hex}
+  - {name: Relevance AI,  source: ashby     , board: relevanceai}
+  - {name: Workato,       source: greenhouse, board: workato}
+  - {name: Tines,         source: greenhouse, board: tines}
