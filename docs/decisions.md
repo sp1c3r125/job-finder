@@ -24,6 +24,7 @@ Recorded decisions. Do not reopen without new evidence.
 - M4 multi-user: TRIGGER. Build it when 5 or more job seekers ask, or when the owner decides to sell it.
   Needs sign-in, row-level security, consent, deletion, retention, per-user caps and legal review
   (Philippine Data Privacy Act).
+- M5 public job digest: TRIGGER. See "M5 public job digest" below. M6 full site: see the end of that section.
 
 ## Source terms
 - Himalayas: visible link to Himalayas, `applicationLink` unchanged, expired jobs removed, no passing of jobs to other boards.
@@ -55,3 +56,17 @@ Recorded decisions. Do not reopen without new evidence.
 
 ## M4 multi-user
 - Not built. TRIGGER: 5 or more job seekers ask, or the owner decides to sell it.
+
+## M5 public job digest (TRIGGER)
+- Trigger: build only when I decide to test demand for a public list of remote AI-automation jobs open to the Philippines. The job finder must have run daily for at least 2 weeks first.
+- Scope: `python -m jobfinder digest --days 7`, with no model calls, writes one weekly page on a site I operate. One LinkedIn company-page post a week links to that page.
+- Content: jobs that passed the pre-filter, newest first, at most 20. Each item shows title, company, location, posted date, a link and "via <source>". No job description text. No fit scores or deal-breakers, because they are personal.
+- Source rules (checked 2026-11-23):
+  - Himalayas: allowed only on sites I operate. Link to Himalayas as the source, keep applicationLink unchanged, remove expired jobs. Never to other job boards, aggregators, Google Jobs or LinkedIn Jobs.
+  - Remote OK: link back to the listing and name Remote OK. No logo.
+  - We Work Remotely: leave out. Its API terms forbid a job search service.
+  - Remote.co: leave out. Its terms ban bots and aggregation.
+  - Greenhouse, Lever, Ashby and research results: link to the employer's own posting only.
+  - No JobPosting structured data, no RSS and no feed to other sites.
+  - LinkedIn: normal posts that link to my site only. Never LinkedIn job posts; posting jobs for another company needs a recruiting contract with it.
+- Next trigger (M6, full site with employer posts or resume upload for other users): 200 subscribers, or 3 employers asking to post a job. Before M6, read each source's full terms (for Himalayas: himalayas.app/terms#api, which does not say whether commercial use is allowed) and get legal review for the Philippine Data Privacy Act.
