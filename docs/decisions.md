@@ -35,7 +35,7 @@ Recorded decisions. Do not reopen without new evidence.
 
 ## Open
 - Browser baseline: Baseline Widely available (set in CLAUDE.md).
-- The modern-web-guidance skill is not installed (`.agents/skills/` is missing).
+- modern-web-guidance is installed in .agents/skills/ (76f9136). CLAUDE.md says how to run it.
 
 ## M1 read-only dashboard
 - FastAPI + Jinja2 + one CSS file, no JavaScript. Packages: fastapi, uvicorn, python-multipart (uploads, M2), jinja2; httpx is test-only.
@@ -51,7 +51,7 @@ Recorded decisions. Do not reopen without new evidence.
 
 ## M3 public demo
 - `DEMO=1` serves only invented data from `demo.db`; write routes answer 405; no downloads, no resume, no model, footer reworded.
-- Real data stays private. Source terms (Himalayas, Remote OK, We Work Remotely) must be verified by the owner before any real data is public.
+- Real data stays private. Source terms: see "Source terms" above, including the We Work Remotely entry (bf85b32).
 
 ## M4 multi-user
 - Not built. TRIGGER: 5 or more job seekers ask, or the owner decides to sell it.
