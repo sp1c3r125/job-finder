@@ -56,7 +56,14 @@ def test_verdict_is_added_as_one_line_to_the_eval_log(tmp_path, monkeypatch):
     from pathlib import Path
     monkeypatch.chdir(tmp_path)
     shutil.copy(Path(__file__).resolve().parent.parent / "config.yaml", ".")
-    ev.main(["--runs", "1"], backend=Model())
+    class WithImport(Model):
+        def complete(self, system, user, schema=None, tool_name=None, max_tokens=None):
+            if tool_name == "submit_resume" and "search_keywords" in (schema or {}).get("properties", {}):
+                return {"name": "Alex Example", "contact": [], "summary": "", "skills": [], "roles": [],
+                        "education": [], "certifications": [], "languages": [], "search_keywords": []}
+            return super().complete(system, user, schema, tool_name, max_tokens)
+
+    ev.main(["--runs", "1"], backend=WithImport())
     lines = [json.loads(l) for l in Path("logs/eval.jsonl").read_text().splitlines()]
     verdicts = [l for l in lines if l.get("event") == "eval_verdict"]
     assert len(verdicts) == 1
