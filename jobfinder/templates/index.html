@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block main %}
 <h1>Job matches</h1>
-<p>{{ rows|length }} scored job{{ "" if rows|length == 1 else "s" }}, best match first. A score of {{ threshold }} or more gets a draft.{% if demo %} (Invented scores.){% endif %}</p>
+<p>{{ rows|length }} scored job{{ "" if rows|length == 1 else "s" }}, best match first. Jobs the model has read show a fit score; the rest show a "rule score" from plain code. A fit score of {{ threshold }} or more gets a tailored resume; cover notes are drafted on request from the job page.{% if demo %} (Invented scores.){% endif %}</p>
 {% if not demo %}<section aria-labelledby="actions-h">
   <h2 id="actions-h">Actions</h2>
   <p>Model calls today: {{ calls }} of {{ cap }}. Kill switch: <strong>{{ "ON" if kill else "off" }}</strong>.
@@ -67,7 +67,7 @@
     <tbody>
     {% for r in rows %}
       <tr>
-        <td data-label="Score"><strong>{{ r.score }}</strong></td>
+        <td data-label="Score"><strong>{{ r.score }}</strong>{% if r.score_kind != "model" %} <small>rule score</small>{% endif %}</td>
         <th scope="row" data-label="Company">{{ r.company }}</th>
         <td data-label="Title"><a href="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}">{{ r.title }}</a></td>
         <td data-label="Source">{{ r.sources }}{% include "_credit.html" %}</td>

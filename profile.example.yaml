@@ -3,6 +3,8 @@ name: Alex Example
 location: Cebu, Philippines
 timezone: UTC+8
 years_experience: 4
+years_ai_automation: 3   # years in AI / ML / automation / software work
+years_total: 9            # all work experience
 summary: Automation developer who builds workflow tools and small LLM apps.
 skills: [Python, SQL, Zapier, n8n, REST APIs, prompt design]
 experience:

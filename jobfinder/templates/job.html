@@ -4,16 +4,25 @@
 <p><a href="/">Back to all jobs</a></p>
 <h1>{{ r.title }}</h1>
 <p>{{ r.company }} · {{ r.sources }}{% include "_credit.html" %} · posted {{ r.posted }}{% if location %} · {{ location }}{% endif %}</p>
-<p>Fit score: <strong>{{ r.score }}</strong> out of 100. Location rule: {{ r.rule }}.</p>
+<p>{% if r.score_kind == "model" %}Fit score{% else %}Rule score{% endif %}: <strong>{{ r.score }}</strong> out of 100
+  ({{ "scored by the model" if r.score_kind == "model" else "plain code, the model has not read this job" }}). Location rule: {{ r.rule }}.</p>
 <p><a href="{{ r.url }}">Open the original posting</a>
   {% if r.draft %} · <a href="/files/{{ r.draft|fileurl }}">Cover note draft</a>{% endif %}
   {% if r.resume %} · <a href="/files/{{ r.resume|fileurl }}">Tailored resume</a>{% endif %}</p>
+{% if not demo %}
+<form action="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}/note" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <button type="submit">{% if r.draft %}Draft the cover note again{% else %}Draft cover note{% endif %}</button>
+</form>
+{% endif %}
 {% if demo %}{% elif has_resume %}
 <form action="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}/tailor" method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <button type="submit">Tailor my resume to this job</button>
 </form>
 {% else %}<p>Import a resume on the main page to tailor it to this job.</p>{% endif %}
+{% if r.rule_reasons %}<section aria-labelledby="rr"><h2 id="rr">Rule score</h2>
+  <ul>{% for x in r.rule_reasons %}<li>{{ x }}</li>{% endfor %}</ul></section>{% endif %}
 <section aria-labelledby="sum"><h2 id="sum">Summary</h2><p>{{ r.summary }}</p></section>
 <section aria-labelledby="ev"><h2 id="ev">Matching evidence</h2><p>{{ r.evidence or "None listed." }}</p></section>
 <section aria-labelledby="gp"><h2 id="gp">Gaps</h2><p>{{ r.gaps or "None listed." }}</p></section>

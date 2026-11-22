@@ -39,7 +39,7 @@ def test_demo_has_no_actions_or_downloads(client):
 
 
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
-@pytest.mark.parametrize("path", ["/run", "/upload", "/kill", "/job/demo/1/tailor"])
+@pytest.mark.parametrize("path", ["/run", "/upload", "/kill", "/job/demo/1/tailor", "/job/demo/1/note"])
 def test_every_write_route_is_405(client, method, path):
     assert getattr(client, method)(path).status_code == 405
 

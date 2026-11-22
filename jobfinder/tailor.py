@@ -1,7 +1,10 @@
 """Tailor the resume to one job. The model only selects, orders and rephrases lines.
 Code copies names, titles, employers, dates and education from resume.json, and rejects any rewritten line
 that adds a number, tool or term its source line does not have. Rejected lines keep the original wording."""
+import re
+
 from .checks import check_shape, terms, unsupported
+from .prefilter import _has
 
 _S = {"type": "string"}
 _SL = {"type": "array", "items": _S}
@@ -134,8 +137,13 @@ def assemble(res, out, job_text):
     return tailored, info
 
 
-def tailor_resume(backend, res, job, log):
-    """One try plus one retry; invalid output is never repaired. Returns (tailored, info) or None."""
+def tailor_resume(backend, res, job, log, mode="rewrite"):
+    """mode "rank": no model call, see rank_resume. mode "rewrite": one try plus one retry; invalid output is never
+    repaired. Returns (tailored, info) or None."""
+    if mode == "rank":
+        tailored, info = rank_resume(res, job)
+        log("resume_tailored", job, gaps=[], reverts=[], mode="rank")
+        return tailored, info
     user = build_user(res, job)
     for attempt in (1, 2):
         try:
@@ -148,4 +156,40 @@ def tailor_resume(backend, res, job, log):
         return None
     tailored, info = assemble(res, out, f"{job.title}\n{job.description}")
     log("resume_tailored", job, gaps=info["gaps"], reverts=info["reverts"])
+    return tailored, info
+
+
+_WORD = re.compile(r"[a-z0-9][a-z0-9+#.]*[a-z0-9+#]|[a-z0-9]")
+_STOP = frozenset("a an and are as at be by for from has have in is it of on or our that the their this to we with you your "
+                  "will can all any not but more most other into over per via using use used".split())
+
+
+def _words(text):
+    return {w for w in _WORD.findall(text.lower()) if w not in _STOP and len(w) > 1}
+
+
+def rank_resume(res, job):
+    """Tailor with no model call and no rewording: roles keep their order; inside each role, groups, bullets and the
+    skills list are ordered by how many of the job's words they share. Stable: ties keep the resume's own order.
+    Returns (tailored, info) like tailor_resume."""
+    jw = _words(f"{job.title}\n{job.description}")
+
+    def key(text):
+        return -len(_words(text) & jw)
+
+    roles = []
+    for i, role in enumerate(res["roles"]):
+        rid = f"r{i}"
+        bullets = sorted(((f"{rid}b{j}", b) for j, b in enumerate(role["bullets"])), key=lambda x: key(x[1]))
+        groups = []
+        for k, g in sorted(enumerate(role.get("groups") or []),
+                           key=lambda x: key(" ".join([x[1]["heading"]] + list(x[1]["bullets"])))):
+            gid = f"{rid}g{k}"
+            gb = sorted(((f"{gid}b{j}", b) for j, b in enumerate(g["bullets"])), key=lambda x: key(x[1]))
+            groups.append({"group_id": gid, "bullets": [{"source_id": s, "text": t} for s, t in gb]})
+        roles.append({"role_id": rid, "bullets": [{"source_id": s, "text": t} for s, t in bullets], "groups": groups})
+    skills = sorted(res["skills"], key=lambda s: 0 if _has(s, f"{job.title}\n{job.description}") else 1)
+    out = {"summary": "", "skills": skills, "roles": roles, "gaps": [], "changes": []}
+    tailored, info = assemble(res, out, f"{job.title}\n{job.description}")
+    info["changes"] = ["rank mode: bullets, groups and skills ordered by overlap with the job's words; nothing reworded, no model call"]
     return tailored, info

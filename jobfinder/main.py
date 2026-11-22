@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 
 import yaml
 
-from . import db, report, resume, target
+from . import db, report, resume, rules, target
 from .guard import capped_default
-from .drafts import draft_note, eligible, write_draft
+from .drafts import eligible
 from .http import HttpClient
 from .log import make_logger
 from .prefilter import max_age_days, prefilter
@@ -80,16 +80,22 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
     jobs, returned = collect(http, cfg, companies, log)
     research_stats = {}
     if cfg.get("research") and not args.no_model:
-        today = datetime.now(timezone.utc).date().isoformat()
-        if db.get_setting(con, "research_last_run") == today:      # at most one research run per day (UTC)
-            log("research_skipped", None, reason="already finished today", day=today)
-            print("research: skipped, a research run already finished today (UTC)")
+        today = datetime.now(timezone.utc).date()
+        every = int(cfg.get("research_every_days", 7))
+        last = db.get_setting(con, "research_last_run")
+        try:
+            age = (today - datetime.fromisoformat(last).date()).days if last else None
+        except ValueError:
+            age = None
+        if age is not None and age < every:                        # research runs every research_every_days days (UTC)
+            log("research_skipped", None, reason=f"last finished {age} days ago, runs every {every}", day=last)
+            print(f"research: skipped, last finished {age} day(s) ago; it runs every {every} days")
         else:
             # One model call per target title (counted against the daily cap); every link is checked in code before it is kept.
             jobs += research_source.fetch(backend_once(), cfg, log, get=research_get, stats=research_stats)
             returned["research"] = research_stats["returned"]
             if research_stats["finished"]:
-                db.set_setting(con, "research_last_run", today)
+                db.set_setting(con, "research_last_run", today.isoformat())
     passed_by_source = Counter()
     now = datetime.now(timezone.utc)
     before = len(jobs)
@@ -107,6 +113,11 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
         if ok:
             passed_by_source[job.source] += 1
 
+    # Rule score (plain code, no model) for every job that passed the pre-filter; recomputed each run so a changed
+    # profile or weight takes effect. Decides which jobs get a model call.
+    facts = rules.load_facts(profile_yaml)
+    db.set_rule_scores(con, [(j, rules.rule_score(j, cfg, res, facts)) for j in db.passed_jobs(con)])
+
     print(f"{'source':<12}{'returned':>9}{'passed':>8}")
     for s in returned:
         print(f"{s:<12}{returned[s]:>9}{passed_by_source[s]:>8}")
@@ -121,7 +132,16 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
     scored_by_source = Counter()
     # Every saved job that passed the pre-filter and has no score yet, not only the new ones:
     # an earlier run may have saved jobs and stopped before scoring them.
-    to_score = db.unscored_passed(con, now, cfg["max_age_days"], {"research": max_age_days(cfg, "research")})
+    waiting = db.unscored_passed(con, now, cfg["max_age_days"], {"research": max_age_days(cfg, "research")})
+    # Model scoring only for the best rule scores: rule score >= rule_min, at most model_daily_jobs a day (UTC).
+    rule_min, daily = cfg.get("rule_min", 40), cfg.get("model_daily_jobs", 15)
+    quota = max(0, daily - db.model_scored_today(con))
+    good = sorted((j for j in waiting if (j.rule_score or 0) >= rule_min), key=lambda j: -(j.rule_score or 0))
+    to_score = good[:quota]
+    log("model_gate", None, waiting=len(waiting), rule_min=rule_min, above_rule_min=len(good), quota=quota,
+        to_score=len(to_score))
+    print(f"model scoring: {len(waiting)} jobs waiting, {len(good)} with rule score >= {rule_min}, "
+          f"{len(to_score)} sent to the model (limit {daily} a day, {daily - quota} already used today)")
     for job in to_score:
         if getattr(backend, "stopped", False):       # kill switch or daily cap: stop, do not try every job
             log("run_stopped", None, reason="model refused")
@@ -132,11 +152,9 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
             continue
         draft_path = resume_path = None
         if eligible(score, cfg["score_threshold"]):
-            note = draft_note(backend, profile_text, job, score, log)
-            if note:
-                draft_path = write_draft(job, note)
+            # Cover notes are on demand only (the "Draft cover note" button on the job page).
             if res and cfg.get("tailor_resume", True):
-                got = tailor_resume(backend, res, job, log)
+                got = tailor_resume(backend, res, job, log, mode=cfg.get("tailor_mode", "rank"))
                 if got:
                     resume_path = write_tailored(*got, job)
                     tailored += 1
@@ -147,10 +165,10 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
             resume=resume_path)
     if research_stats:
         print(f"research: {passed_by_source['research']} passed the pre-filter, {scored_by_source['research']} scored")
-    rs = report.rows(con)
+    rs = report.rows(con, max(cfg["max_age_days"], max_age_days(cfg, "research")))
     report.write_xlsx(rs)
     report.write_dashboard(rs)
-    print(f"scored {scored} of {len(to_score)} waiting jobs, tailored {tailored} resumes; {len(to_score) - scored} left for the next run; report.xlsx and dashboard.html written")
+    print(f"scored {scored} of {len(to_score)} chosen jobs, tailored {tailored} resumes; {len(waiting) - scored} left with a rule score only; report.xlsx and dashboard.html written")
     return 0
 
 
@@ -184,6 +202,7 @@ def tailor_cmd(argv, backend=None):
                                  description="Tailor your resume to one job that is already in jobs.db.")
     ap.add_argument("url", help="the job link from report.xlsx or dashboard.html")
     ap.add_argument("--db", default="jobs.db")
+    ap.add_argument("--mode", choices=["rank", "rewrite"], help="default: tailor_mode in config.yaml (rank)")
     args = ap.parse_args(argv)
     res = resume.load_resume()
     if not res:
@@ -195,7 +214,13 @@ def tailor_cmd(argv, backend=None):
     if not job:
         print("that link is not in jobs.db. Run python -m jobfinder first.")
         return 1
-    got = tailor_resume(backend or capped_default(args.db, log), res, job, log)
+    import yaml
+    try:
+        with open("config.yaml", encoding="utf-8") as f:
+            mode = args.mode or (yaml.safe_load(f) or {}).get("tailor_mode", "rank")
+    except OSError:
+        mode = args.mode or "rank"
+    got = tailor_resume(backend or capped_default(args.db, log), res, job, log, mode=mode)
     if not got:
         print("tailoring failed; see logs/decisions.jsonl")
         return 1
@@ -226,7 +251,13 @@ def make_target_cmd(argv, backend=None):
     return 0
 
 
-COMMANDS = {"import-resume": import_resume_cmd, "tailor": tailor_cmd, "make-target": make_target_cmd}
+def calibrate_cmd(argv, backend=None):
+    from . import calibrate
+    return calibrate.main(argv)
+
+
+COMMANDS = {"import-resume": import_resume_cmd, "tailor": tailor_cmd, "make-target": make_target_cmd,
+            "calibrate": calibrate_cmd}
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 No SQL here: everything goes through db.py. The app never sends or applies anywhere:
 every action only reads public job feeds, calls the model (behind the cap and kill switch) and writes local files."""
 import hmac
+import json
 import os
 import secrets
 from datetime import datetime, timezone
@@ -19,10 +20,12 @@ from . import db, report
 from . import demo as demo_mod
 from . import resume as resume_mod
 from . import target as target_mod
+from .drafts import draft_note, write_draft
 from .guard import CappedBackend, default_cap, killed
 from .log import make_logger
 from .resume_docx import write_tailored
 from .runner import Runner
+from .scoring import load_profile
 from .tailor import tailor_resume
 
 HERE = Path(__file__).resolve().parent
@@ -39,7 +42,7 @@ MAGIC = {".pdf": b"%PDF", ".docx": b"PK"}  # cheap wrong-type check for binary f
 NOTICES = {"started": "Started. Select Refresh status to see progress.",
            "busy": "Something is already running. Wait for it to finish.",
            "kill_on": "Kill switch is ON: no model calls will be made.", "kill_off": "Kill switch is off.",
-           "no_resume": "Import a resume first.", "no_job": "That job is not in the database."}
+           "no_resume": "Import a resume first.", "no_profile": "Add profile.yaml or import a resume first.", "no_job": "That job is not in the database."}
 
 
 def load_config():
@@ -136,7 +139,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     def index(request: Request):
         con = db.connect(db_path)
         try:
-            rs = report.rows(con)
+            rs = report.rows(con, max(cfg.get("max_age_days", 3), cfg.get("research_max_age_days", 7)))
         finally:
             con.close()
         return page(request, "index.html", rows=rs, resume=None if demo else resume_summary(),
@@ -146,7 +149,8 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     def job(request: Request, source: str, source_id: str):
         con = db.connect(db_path)
         try:
-            raw = db.get_scored_job(con, source, source_id)
+            raw = db.get_scored_job(con, source, source_id,
+                                    waiting_days=max(cfg.get("max_age_days", 3), cfg.get("research_max_age_days", 7)))
         finally:
             con.close()
         if raw is None:
@@ -163,7 +167,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
         def not_allowed():
             raise HTTPException(405, "Read-only demo")
 
-        for route in ("/run", "/upload", "/kill", "/job/{source}/{source_id:path}/tailor"):
+        for route in ("/run", "/upload", "/kill", "/job/{source}/{source_id:path}/tailor", "/job/{source}/{source_id:path}/note"):
             app.add_api_route(route, not_allowed, methods=["POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 
         @app.get("/files/{path:path}")
@@ -235,7 +239,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
             return back(notice="no_job")
 
         def work():
-            got = tailor_resume(capped(), res, found, log)
+            got = tailor_resume(capped(), res, found, log, mode=cfg.get("tailor_mode", "rank"))
             if not got:
                 return "tailoring failed or was refused; see logs/decisions.jsonl"
             path = write_tailored(*got, found)
@@ -249,6 +253,43 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
         if not runner.start("Tailor resume", work):
             return back(notice="busy")
         log("web_tailor", found)
+        return back(f"/job/{source}/{source_id}", "started")
+
+    @app.post("/job/{source}/{source_id:path}/note")
+    def note(request: Request, source: str, source_id: str, csrf_token: str = Form("")):
+        """Draft a cover note for one job, on request only (one model call)."""
+        guard_post(request, csrf_token)
+        con = db.connect(db_path)
+        try:
+            found = db.get_job(con, source, source_id)
+            raw = db.get_scored_job(con, source, source_id, waiting_days=max(cfg.get("max_age_days", 3),
+                                                                               cfg.get("research_max_age_days", 7)))
+        finally:
+            con.close()
+        if not found or raw is None:
+            return back(notice="no_job")
+        s = json.loads(raw["score_json"]) if raw["score_json"] else {}
+        score = {"gaps": s.get("gaps", []), "matching_evidence": s.get("matching_evidence", [])}
+        try:
+            profile_text = load_profile(base / "profile.yaml", resume_json)
+        except SystemExit:                               # neither profile.yaml nor resume.json
+            return back(f"/job/{source}/{source_id}", "no_profile")
+
+        def work():
+            text = draft_note(capped(), profile_text, found, score, log)
+            if not text:
+                return "cover note failed or was refused; see logs/decisions.jsonl"
+            path = write_draft(found, text)
+            con2 = db.connect(db_path)
+            try:
+                db.set_draft(con2, found, path)
+            finally:
+                con2.close()
+            return "cover note drafted"
+
+        if not runner.start("Cover note", work):
+            return back(notice="busy")
+        log("web_note", found)
         return back(f"/job/{source}/{source_id}", "started")
 
     @app.get("/files/{path:path}")

@@ -14,4 +14,5 @@ class Job:
     description: str       # plain text
     also_seen_on: list = field(default_factory=list)
     undated: bool = False  # True: the source showed no posting date; `posted` is the first-seen date (research)
-    expires: str = ""      # ISO 8601 UTC; "" if the source gives none (Himalayas gives expiryDate)
+    expires: str = ""
+    rule_score: int | None = None   # plain-code score 0-100 (rules.py), set when read back from the database      # ISO 8601 UTC; "" if the source gives none (Himalayas gives expiryDate)

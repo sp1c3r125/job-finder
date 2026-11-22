@@ -6,7 +6,7 @@ from openpyxl import Workbook
 
 from . import db
 
-COLUMNS = ["Source", "Company", "Title", "Link", "Posted", "Location rule", "Score",
+COLUMNS = ["Source", "Company", "Title", "Link", "Posted", "Location rule", "Score", "Score type",
            "Evidence", "Gaps", "Deal-breakers", "Draft", "Resume", "Summary"]
 SOURCE_LABELS = {"greenhouse": "Greenhouse", "lever": "Lever", "ashby": "Ashby",
                  "himalayas": "Himalayas", "remoteok": "Remote OK", "wwr": "We Work Remotely", "demo": "Demo (invented)"}
@@ -14,17 +14,24 @@ SOURCE_LABELS = {"greenhouse": "Greenhouse", "lever": "Lever", "ashby": "Ashby",
 
 def row_from(r):
     """One report row (display fields) from a raw scored-job dict returned by db.py."""
-    s = json.loads(r["score_json"])
+    s = json.loads(r["score_json"]) if r["score_json"] else None
+    rj = json.loads(r["rule_json"]) if r.get("rule_json") else {"reasons": [], "deal_breakers": []}
     names = [SOURCE_LABELS.get(x, x) for x in [r["source"]] + json.loads(r["also_seen_on"] or "[]")]
     return dict(source=names[0], sources=", ".join(names), source_key=r["source"], source_id=r["source_id"],
                 company=r["company"], title=r["title"], url=r["url"], posted="date not shown" if r.get("undated") else (r["posted"] or "")[:10],
-                rule=r["rule"] or "", score=s["fit_score"], evidence="; ".join(s["matching_evidence"]),
-                gaps="; ".join(s["gaps"]), deal_breakers="; ".join(s["deal_breakers"]),
-                draft=r["draft_path"] or "", resume=r["resume_path"] or "", summary=s["summary"])
+                rule=r["rule"] or "", score=s["fit_score"] if s else r["rule_score"],
+                score_kind="model" if s else "rule", rule_score=r.get("rule_score"), rule_reasons=rj["reasons"],
+                evidence="; ".join(s["matching_evidence"]) if s else "",
+                gaps="; ".join(s["gaps"]) if s else "",
+                deal_breakers="; ".join(s["deal_breakers"] if s else rj["deal_breakers"]),
+                draft=r["draft_path"] or "", resume=r["resume_path"] or "",
+                summary=s["summary"] if s else "Scored by plain rules only; the model has not read this job.")
 
 
-def rows(con):
-    return sorted((row_from(r) for r in db.scored_jobs(con)), key=lambda r: -r["score"])
+def rows(con, waiting_days=db.WAITING_DAYS):
+    """Model-scored jobs first (best first), then jobs with only a rule score (best first). The two scales differ."""
+    return sorted((row_from(r) for r in db.scored_jobs(con, waiting_days=waiting_days)),
+                  key=lambda r: (r["score_kind"] != "model", -r["score"]))
 
 
 def write_xlsx(rs, path="report.xlsx"):
@@ -33,7 +40,7 @@ def write_xlsx(rs, path="report.xlsx"):
     ws.append(COLUMNS)
     for r in rs:
         ws.append([r["sources"], r["company"], r["title"], r["url"], r["posted"], r["rule"], r["score"],
-                   r["evidence"], r["gaps"], r["deal_breakers"], r["draft"], r["resume"], r["summary"]])
+                   "model" if r["score_kind"] == "model" else "rule score", r["evidence"], r["gaps"], r["deal_breakers"], r["draft"], r["resume"], r["summary"]])
     wb.save(path)
 
 
@@ -59,7 +66,7 @@ def write_dashboard(rs, path="dashboard.html"):
         body.append(
             f"<tr><td>{e(r['sources'])}{via}</td><td>{e(r['company'])}</td>"
             f"<td><a href=\"{e(r['url'])}\">{e(r['title'])}</a></td><td>{e(r['posted'])}</td>"
-            f"<td>{e(r['rule'])}</td><td><b>{r['score']}</b></td><td>{e(r['evidence'])}</td>"
+            f"<td>{e(r['rule'])}</td><td><b>{r['score']}</b></td><td>{'model' if r['score_kind'] == 'model' else 'rule score'}</td><td>{e(r['evidence'])}</td>"
             f"<td>{e(r['gaps'])}</td><td>{e(r['deal_breakers'])}</td><td>{_file_link(r['draft'])}</td>"
             f"<td>{_file_link(r['resume'])}</td></tr>")
     head = "".join(f"<th>{c}</th>" for c in COLUMNS if c != "Summary")

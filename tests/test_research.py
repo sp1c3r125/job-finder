@@ -163,7 +163,7 @@ def run_in(tmp_path, monkeypatch, research_on, backend, get, extra_target=None):
     return main.run(["--db", "t.db"], backend=backend, http=object(), research_get=get)
 
 
-def test_run_research_results_are_prefiltered_scored_and_drafted(tmp_path, monkeypatch, capsys):
+def test_run_research_results_are_prefiltered_and_scored(tmp_path, monkeypatch, capsys):
     recent_day = recent(2)[:10]
     results = [posting(posted=recent_day),
                posting(url="https://acme.com/2", title="Frontend Developer", posted=recent_day),     # title check rejects
@@ -171,17 +171,17 @@ def test_run_research_results_are_prefiltered_scored_and_drafted(tmp_path, monke
                posting(url="https://acme.com/4", posted="2026-01-01"),                               # too old for 7 days
                posting(url="https://acme.com/5", title="AI Engineer", posted=recent_day, location="Remote - US only")]
     pages = {r["url"]: Resp(text=f"<title>{r['title']}</title> Remote role.") for r in results}
-    b = FakeBackend([{"results": results}, GOOD, {"note": "I build n8n workflows."}])
+    b = FakeBackend([{"results": results}, GOOD])
     assert run_in(tmp_path, monkeypatch, True, b, FakeGet(pages)) == 0
     out = capsys.readouterr().out
     assert "research: 5 results returned, 5 passed the link check" in out
     assert "research: 1 passed the pre-filter, 1 scored" in out
-    assert b.tools[0] == research.TOOLS and b.tools[1:] == [None, None]          # scoring and drafting have no tools
+    assert b.tools[0] == research.TOOLS and b.tools[1:] == [None]          # scoring has no tools; no cover note is drafted by the run
     import sqlite3
     con = sqlite3.connect("t.db")
     assert con.execute("select source, url, passed from jobs where passed=1").fetchall() == [("research", GOOD_URL, 1)]
     assert con.execute("select count(*) from job_scores where score_json is not null").fetchone()[0] == 1
-    assert len(list(Path("drafts").glob("*.md"))) == 1
+    assert not Path("drafts").exists() or not list(Path("drafts").glob("*.md"))
 
 
 def test_research_switch_off_makes_no_research_call(tmp_path, monkeypatch):
@@ -207,7 +207,7 @@ def test_run_keeps_an_undated_result_but_still_rejects_an_old_dated_one(tmp_path
     from jobfinder import db, report
     results = [posting(posted=""), posting(url="https://acme.com/old", posted="2026-01-01")]
     pages = {r["url"]: Resp() for r in results}
-    b = FakeBackend([{"results": results}, GOOD, {"note": "I build workflows."}])
+    b = FakeBackend([{"results": results}, GOOD])
     assert run_in(tmp_path, monkeypatch, True, b, FakeGet(pages)) == 0
     con = sqlite3.connect("t.db")
     assert con.execute("select url, passed, undated from jobs order by url").fetchall() == [
@@ -227,7 +227,7 @@ def test_requalify_updates_a_saved_job(tmp_path):
         "2026-11-22T00:00:00+00:00", 1, 1, "philippines")
 
 
-# --- research runs at most once a day (UTC) -----------------------------------------------------------------------
+# --- research runs once every research_every_days (default 7) -----------------------------------------------------------------------
 
 def test_research_runs_once_a_day_and_a_cut_short_run_can_retry(tmp_path, monkeypatch, capsys):
     import sqlite3
@@ -240,10 +240,13 @@ def test_research_runs_once_a_day_and_a_cut_short_run_can_retry(tmp_path, monkey
     b2 = FakeBackend([])                                     # the same day again: no research call
     assert main.run(["--db", "t.db"], backend=b2, http=object(), research_get=FakeGet({})) == 0
     assert b2.calls == [] and "research: skipped" in capsys.readouterr().out
-    sqlite3.connect("t.db").execute("update settings set value='2000-01-01' where key='research_last_run'").connection.commit()
-    b3 = FakeBackend([{"results": []}])                      # a new day: it runs again
-    main.run(["--db", "t.db"], backend=b3, http=object(), research_get=FakeGet({}))
-    assert len(b3.calls) == 1
+    from datetime import timedelta
+    for days_ago, runs in ((6, False), (8, True)):           # weekly: 6 days ago is too soon, 8 days ago runs again
+        d = (datetime.now(timezone.utc).date() - timedelta(days=days_ago)).isoformat()
+        sqlite3.connect("t.db").execute("update settings set value=? where key='research_last_run'", (d,)).connection.commit()
+        b3 = FakeBackend([{"results": []}])
+        main.run(["--db", "t.db"], backend=b3, http=object(), research_get=FakeGet({}))
+        assert len(b3.calls) == (1 if runs else 0), days_ago
 
 
 def test_a_run_where_every_call_failed_is_not_marked_finished(tmp_path, monkeypatch):

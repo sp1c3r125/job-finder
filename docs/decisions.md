@@ -25,6 +25,8 @@ Recorded decisions. Do not reopen without new evidence.
   Needs sign-in, row-level security, consent, deletion, retention, per-user caps and legal review
   (Philippine Data Privacy Act).
 - M5 public job digest: TRIGGER. See "M5 public job digest" below. M6 full site: see the end of that section.
+- API backend for scheduled runs: TRIGGER. Batch API (50% cheaper), a cheaper model for scoring, and the web search tool
+  for research ($10 per 1,000 searches plus tokens). Trigger: plan limits get in the way, or the job finder moves to a server.
 
 ## Source terms
 - Himalayas: visible link to Himalayas, `applicationLink` unchanged, expired jobs removed, no passing of jobs to other boards.
@@ -70,3 +72,14 @@ Recorded decisions. Do not reopen without new evidence.
   - No JobPosting structured data, no RSS and no feed to other sites.
   - LinkedIn: normal posts that link to my site only. Never LinkedIn job posts; posting jobs for another company needs a recruiting contract with it.
 - Next trigger (M6, full site with employer posts or resume upload for other users): 200 subscribers, or 3 employers asking to post a job. Before M6, read each source's full terms (for Himalayas: himalayas.app/terms#api, which does not say whether commercial use is allowed) and get legal review for the Philippine Data Privacy Act.
+
+## Fewer model calls (decided 2026-11-23)
+- Code first, model last. A rule score (plain code, 0-100, reasons saved) is computed for every job that passes the pre-filter.
+  The model reads only jobs with rule score >= `rule_min` (40), at most `model_daily_jobs` (15) a day, best rule score first.
+  Other jobs show only "rule score" on the dashboard.
+- Years rule: "N+ years" near AI, ML, LLM, automation, agents, software or engineering is compared with `years_ai_automation`; any other
+  with `years_total` (both numbers in profile.yaml).
+- Cover notes are drafted on request only (button on the job page). Tailoring defaults to `tailor_mode: rank` (reorder by word overlap,
+  no model call, no rewording); `rewrite` keeps the model call. Research runs every `research_every_days` (7).
+- Weights (title 40, skills 30, years 15, location 15) and `rule_min` were kept after calibration (`python -m jobfinder calibrate`).
+  Only 2 saved jobs scored 70 or more, so tuning further would overfit.

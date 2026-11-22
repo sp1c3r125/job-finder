@@ -7,6 +7,10 @@ score_threshold: 70
 daily_call_cap: 300         # most model calls per day (UTC); more are refused and logged
 allowed_hosts: [127.0.0.1, localhost]   # add your tunnel hostname here
 aggregators: [himalayas, remoteok, wwr]
+rule_min: 40                # a job needs this rule score (0-100, plain code) before the model reads it
+tailor_mode: rank           # rank: reorder by overlap with the job, no model call. rewrite: the model rewords (one call per job)
+research_every_days: 7      # the research source runs at most once in this many days
+model_daily_jobs: 15        # the model scores at most this many jobs a day (best rule scores first)
 research: true              # true: one web-search call per target title (counts against daily_call_cap); false: off
 research_max_age_days: 7    # research postings are asked for over the last 7 days
 himalayas: {country: PH, timezone: "UTC+8", max_pages: 3}

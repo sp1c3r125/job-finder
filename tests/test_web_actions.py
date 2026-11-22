@@ -148,3 +148,40 @@ def test_end_to_end_upload_sample_resume_then_tailor_and_open_docx(env):
     [path_docx] = list((env / "resumes").glob("*.docx"))
     assert "n8n" in "\n".join(p.text for p in docx.Document(str(path_docx)).paragraphs)
     assert c.get(f"/files/resumes/{path_docx.name}").status_code == 200
+
+
+def test_cover_note_needs_a_profile(env):
+    c, token, _ = client(env, backend=FakeBackend([]))
+    assert c.post("/job/ashby/1/note", data={"csrf_token": token}).headers["location"].endswith("no_profile")
+
+
+def test_cover_note_is_drafted_only_on_request_and_saved(env):
+    (env / "profile.yaml").write_text("summary: Automation developer.\n", encoding="utf-8")
+    b = FakeBackend([{"note": "I build n8n workflows. Gap: no Kubernetes."}])
+    c, token, path = client(env, backend=b)
+    page = c.get("/job/ashby/1").text
+    assert "Draft cover note" in page and b.calls == []                                # nothing is drafted by itself
+    assert c.post("/job/ashby/1/note", data={}).status_code == 403                     # CSRF token needed
+    assert c.post("/job/ashby/zzz/note", data={"csrf_token": token}).headers["location"].endswith("no_job")
+    assert c.post("/job/ashby/1/note", data={"csrf_token": token}).status_code == 303
+    wait_idle(c, "cover note drafted")
+    assert len(b.calls) == 1
+    [md] = list((env / "drafts").glob("*.md"))
+    assert "no Kubernetes" in md.read_text(encoding="utf-8")
+    assert "Cover note draft" in c.get("/job/ashby/1").text
+
+
+def test_cover_note_for_a_job_with_only_a_rule_score(env):
+    (env / "profile.yaml").write_text("summary: Automation developer.\n", encoding="utf-8")
+    b = FakeBackend([{"note": "I build n8n workflows."}])
+    c, token, path = client(env, backend=b)
+    con = db.connect(path)
+    j = make_job(source_id="r1", title="AI Automation Engineer")
+    db.save(con, j, "2026-11-21T00:00:00+00:00", True, "worldwide")
+    db.set_rule_scores(con, [(j, {"score": 61, "reasons": ["title 40/40: exactly your target title"], "deal_breakers": []})])
+    con.close()
+    page = c.get("/job/ashby/r1").text
+    assert "Rule score" in page and "title 40/40" in page and "has not read this job" in page
+    assert c.post("/job/ashby/r1/note", data={"csrf_token": token}).status_code == 303
+    wait_idle(c, "cover note drafted")
+    assert len(b.calls) == 1

@@ -17,10 +17,10 @@ def test_full_run_with_mocks(tmp_path, monkeypatch):
     job = {"id": "1", "title": "AI Automation Engineer", "jobUrl": "https://a/1", "publishedAt": recent(),
            "location": "Remote - Worldwide", "workplaceType": "Remote", "descriptionPlain": "LLM agents"}
     http = FakeHttp({ashby.URL.format(board="acme"): {"jobs": [job]}})
-    backend = FakeBackend([GOOD, {"note": "I build n8n workflows. Gap: no Kubernetes."}])
+    backend = FakeBackend([GOOD])
     assert main.run(["--db", "t.db"], backend=backend, http=http) == 0
     assert Path("report.xlsx").exists() and "AI Automation Engineer" in Path("dashboard.html").read_text()
-    assert len(list(Path("drafts").glob("*.md"))) == 1
+    assert not Path("drafts").exists()                  # cover notes only on demand
     # second run: the job is already seen, so the model is not called again
     backend2 = FakeBackend([])
     main.run(["--db", "t.db"], backend=backend2, http=http)

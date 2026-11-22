@@ -12,10 +12,11 @@ CREATE TABLE IF NOT EXISTS jobs (
   source TEXT, source_id TEXT, company TEXT, title TEXT, url TEXT, posted TEXT,
   location TEXT, remote INTEGER, description TEXT, also_seen_on TEXT DEFAULT '[]',
   first_seen TEXT, passed INTEGER, rule TEXT, norm_key TEXT, expires TEXT DEFAULT '', undated INTEGER DEFAULT 0,
+  rule_score INTEGER, rule_json TEXT,
   PRIMARY KEY (source, source_id)
 );
 CREATE TABLE IF NOT EXISTS job_scores (
-  source TEXT, source_id TEXT, score_json TEXT, draft_path TEXT, resume_path TEXT,
+  source TEXT, source_id TEXT, score_json TEXT, draft_path TEXT, resume_path TEXT, scored_at TEXT,
   PRIMARY KEY (source, source_id)
 );
 CREATE TABLE IF NOT EXISTS usage (day TEXT, ts TEXT, kind TEXT, note TEXT);
@@ -31,8 +32,13 @@ def connect(path="jobs.db"):
         con.execute("ALTER TABLE jobs ADD COLUMN expires TEXT DEFAULT ''")
     if "undated" not in cols:                                   # jobs.db made before undated research results
         con.execute("ALTER TABLE jobs ADD COLUMN undated INTEGER DEFAULT 0")
+    if "rule_score" not in cols:                                # jobs.db made before the rule score
+        con.execute("ALTER TABLE jobs ADD COLUMN rule_score INTEGER")
+        con.execute("ALTER TABLE jobs ADD COLUMN rule_json TEXT")
+    if "scored_at" not in {r[1] for r in con.execute("PRAGMA table_info(job_scores)")}:
+        con.execute("ALTER TABLE job_scores ADD COLUMN scored_at TEXT")
     if {"score_json", "draft_path", "resume_path"} <= cols:     # jobs.db made before the split: copy once
-        con.execute("INSERT OR IGNORE INTO job_scores SELECT source, source_id, score_json, draft_path, resume_path "
+        con.execute("INSERT OR IGNORE INTO job_scores (source,source_id,score_json,draft_path,resume_path) SELECT source, source_id, score_json, draft_path, resume_path "
                     "FROM jobs WHERE score_json IS NOT NULL OR resume_path IS NOT NULL")
     con.commit()
     return con
@@ -61,10 +67,41 @@ def requalify(con, job, posted, undated, passed, rule):
 
 
 def set_score(con, job, score, draft_path=None, resume_path=None):
-    con.execute("INSERT INTO job_scores (source,source_id,score_json,draft_path,resume_path) VALUES (?,?,?,?,?) "
+    con.execute("INSERT INTO job_scores (source,source_id,score_json,draft_path,resume_path,scored_at) VALUES (?,?,?,?,?,?) "
                 "ON CONFLICT(source,source_id) DO UPDATE SET score_json=excluded.score_json, "
-                "draft_path=excluded.draft_path, resume_path=excluded.resume_path",
-                (job.source, job.source_id, json.dumps(score), draft_path, resume_path))
+                "draft_path=excluded.draft_path, resume_path=excluded.resume_path, scored_at=excluded.scored_at",
+                (job.source, job.source_id, json.dumps(score), draft_path, resume_path,
+                 datetime.now(timezone.utc).isoformat()))
+    con.commit()
+
+
+def set_draft(con, job, path):
+    con.execute("INSERT INTO job_scores (source,source_id,draft_path) VALUES (?,?,?) "
+                "ON CONFLICT(source,source_id) DO UPDATE SET draft_path=excluded.draft_path",
+                (job.source, job.source_id, path))
+    con.commit()
+
+
+def model_scored_today(con):
+    """How many jobs the model scored today (UTC day)."""
+    day = datetime.now(timezone.utc).date().isoformat()
+    return con.execute("SELECT COUNT(*) FROM job_scores WHERE score_json IS NOT NULL AND substr(scored_at,1,10)=?",
+                       (day,)).fetchone()[0]
+
+
+def passed_jobs(con):
+    """Every stored job that passed the pre-filter, as Jobs (rule_score filled in when stored)."""
+    out = []
+    for r in con.execute("SELECT source,source_id,company,title,url,posted,location,remote,description,expires,rule_score "
+                         "FROM jobs WHERE passed=1").fetchall():
+        out.append(Job(*r[:7], None if r[7] is None else bool(r[7]), r[8], expires=r[9] or "", rule_score=r[10]))
+    return out
+
+
+def set_rule_scores(con, items):
+    """items: [(job, rule_score_dict)]. One transaction."""
+    con.executemany("UPDATE jobs SET rule_score=?, rule_json=? WHERE source=? AND source_id=?",
+                    [(r["score"], json.dumps(r), j.source, j.source_id) for j, r in items])
     con.commit()
 
 
@@ -88,8 +125,8 @@ def unscored_passed(con, now, max_age_days, source_max_age=None):
     """Every stored job that passed the pre-filter, has no job_scores row, is not expired and is not older than
     max_age_days. Oldest first_seen first. `now` is a timezone-aware datetime."""
     cur = con.execute(
-        "SELECT j.source,j.source_id,j.company,j.title,j.url,j.posted,j.location,j.remote,j.description,j.expires "
-        "FROM jobs j LEFT JOIN job_scores s ON s.source=j.source AND s.source_id=j.source_id "
+        "SELECT j.source,j.source_id,j.company,j.title,j.url,j.posted,j.location,j.remote,j.description,j.expires,"
+        "j.rule_score FROM jobs j LEFT JOIN job_scores s ON s.source=j.source AND s.source_id=j.source_id "
         "WHERE j.passed=1 AND s.source_id IS NULL AND (j.expires IS NULL OR j.expires='' OR j.expires>?) "
         "ORDER BY j.first_seen", (now.isoformat(),))
     out = []
@@ -100,7 +137,7 @@ def unscored_passed(con, now, max_age_days, source_max_age=None):
                 continue
         except ValueError:
             continue
-        out.append(Job(*r[:7], None if r[7] is None else bool(r[7]), r[8], expires=r[9] or ""))
+        out.append(Job(*r[:7], None if r[7] is None else bool(r[7]), r[8], expires=r[9] or "", rule_score=r[10]))
     return out
 
 
@@ -119,23 +156,31 @@ def merge_duplicate(con, job, key):
     return True
 
 
+WAITING_DAYS = 7      # a job with only a rule score is listed this long after it was posted
+
 _SCORED = ("SELECT j.source,j.source_id,j.company,j.title,j.url,j.posted,j.rule,s.score_json,s.draft_path,"
-           "j.also_seen_on,s.resume_path,j.location,j.expires,j.undated "
-           "FROM jobs j JOIN job_scores s ON s.source=j.source AND s.source_id=j.source_id "
-           "WHERE s.score_json IS NOT NULL AND (j.expires IS NULL OR j.expires='' OR j.expires>?)")
+           "j.also_seen_on,s.resume_path,j.location,j.expires,j.undated,j.rule_score,j.rule_json "
+           "FROM jobs j LEFT JOIN job_scores s ON s.source=j.source AND s.source_id=j.source_id "
+           "WHERE (s.score_json IS NOT NULL OR (j.passed=1 AND j.rule_score IS NOT NULL AND j.posted>?)) "
+           "AND (j.expires IS NULL OR j.expires='' OR j.expires>?)")
 
 
-def scored_jobs(con, now_iso=None):
-    """Raw rows for every scored job that has not expired, as dicts. Expired jobs (Himalayas expiryDate) are left out."""
+def _since(now_iso, days):
+    return (datetime.fromisoformat(now_iso) - timedelta(days=days)).isoformat()
+
+
+def scored_jobs(con, now_iso=None, waiting_days=WAITING_DAYS):
+    """Raw rows, as dicts, for every job the dashboard lists: model-scored jobs, and jobs that passed the pre-filter and
+    have only a rule score (posted within waiting_days). Expired jobs (Himalayas expiryDate) are left out."""
     now_iso = now_iso or datetime.now(timezone.utc).isoformat()
-    cur = con.execute(_SCORED, (now_iso,))
+    cur = con.execute(_SCORED, (_since(now_iso, waiting_days), now_iso))
     names = [d[0] for d in cur.description]
     return [dict(zip(names, row)) for row in cur.fetchall()]
 
 
-def get_scored_job(con, source, source_id, now_iso=None):
+def get_scored_job(con, source, source_id, now_iso=None, waiting_days=WAITING_DAYS):
     now_iso = now_iso or datetime.now(timezone.utc).isoformat()
-    cur = con.execute(_SCORED + " AND j.source=? AND j.source_id=?", (now_iso, source, source_id))
+    cur = con.execute(_SCORED + " AND j.source=? AND j.source_id=?", (_since(now_iso, waiting_days), now_iso, source, source_id))
     names = [d[0] for d in cur.description]
     row = cur.fetchone()
     if not row:
@@ -175,3 +220,13 @@ def get_setting(con, key, default=""):
 def set_setting(con, key, value):
     con.execute("INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
     con.commit()
+
+
+def model_scored(con):
+    """[(Job, fit_score)] for every job the model scored (any age). Used to calibrate the rule score."""
+    out = []
+    for r in con.execute("SELECT j.source,j.source_id,j.company,j.title,j.url,j.posted,j.location,j.remote,j.description,"
+                         "j.expires,json_extract(s.score_json,'$.fit_score') FROM jobs j JOIN job_scores s "
+                         "ON s.source=j.source AND s.source_id=j.source_id WHERE s.score_json IS NOT NULL").fetchall():
+        out.append((Job(*r[:7], None if r[7] is None else bool(r[7]), r[8], expires=r[9] or ""), r[10]))
+    return out
