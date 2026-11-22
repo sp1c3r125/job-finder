@@ -131,6 +131,7 @@ def test_end_to_end_upload_sample_resume_then_tailor_and_open_docx(env):
                 return {"name": "Alex Example", "contact": ["alex@example.com"], "summary": "Automation developer who builds workflow tools and small LLM apps for small businesses.",
                         "skills": ["Python", "n8n"], "education": [], "certifications": [], "languages": [],
                         "search_keywords": ["automation"],
+                        "target": {"titles": ["Automation Developer"], "title_words": ["developer"], "exclude_words": [], "level": "mid"},
                         "roles": [{"title": "Automation Developer", "company": "Example Agency Co.", "dates": "Mar 2023 - Present",
                                    "location": "Cebu", "bullets": [bullet]}]}
             return {"summary": "", "skills": ["n8n", "Python"], "gaps": ["No Kubernetes"], "changes": ["moved n8n first"],

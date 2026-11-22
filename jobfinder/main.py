@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import yaml
 
-from . import db, report, resume
+from . import db, report, resume, target
 from .guard import capped_default
 from .drafts import draft_note, eligible, write_draft
 from .http import HttpClient
@@ -48,7 +48,7 @@ def run(argv=None, backend=None, http=None, root=None):
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv and argv[0] in COMMANDS:
         return COMMANDS[argv[0]](argv[1:], backend)
-    ap = argparse.ArgumentParser(epilog="other commands: import-resume FILE, tailor JOB_URL")
+    ap = argparse.ArgumentParser(epilog="other commands: import-resume FILE, make-target, tailor JOB_URL")
     ap.add_argument("--no-model", action="store_true", help="fetch and pre-filter only; print counts")
     ap.add_argument("--db", default="jobs.db")
     args = ap.parse_args(argv)
@@ -69,8 +69,9 @@ def run(argv=None, backend=None, http=None, root=None):
         resume.import_if_new(backend_once, log, drop_dir, resume_json)          # a new file in resume/ is read before the search
     res = resume.load_resume(resume_json)
     cfg = resume.with_resume_keywords(cfg, res)
+    cfg = target.with_target(cfg, res, root)
     if res:
-        log("keywords", None, keywords=cfg["keywords"])
+        log("keywords", None, keywords=cfg["keywords"], target=cfg.get("target"), target_source=cfg.get("target_source"))
     # Load the profile before fetching: a run with no profile and no resume stops here, before it saves any job.
     profile_text = None if args.no_model else load_profile(profile_yaml, resume_json)
     http = http or HttpClient(cfg["user_agent"], cfg["request_delay_seconds"])
@@ -185,7 +186,28 @@ def tailor_cmd(argv, backend=None):
     return 0
 
 
-COMMANDS = {"import-resume": import_resume_cmd, "tailor": tailor_cmd}
+def make_target_cmd(argv, backend=None):
+    ap = argparse.ArgumentParser(prog="python -m jobfinder make-target",
+                                 description="Make the search profile from the current resume.json with one model call. "
+                                             "The resume is not imported again.")
+    ap.parse_args(argv)
+    res = resume.load_resume()
+    if not res:
+        print("no resume.json yet. Run: python -m jobfinder import-resume <file>")
+        return 1
+    log = make_logger()
+    t = target.make_target(backend or capped_default("jobs.db", log), res, log)
+    if not t:
+        print("search profile failed; see logs/decisions.jsonl")
+        return 1
+    target.save_target(t)
+    print("saved the search profile in resume.json under \"target\":")
+    for k in target.KEYS:
+        print(f"  {k}: {t[k]}")
+    return 0
+
+
+COMMANDS = {"import-resume": import_resume_cmd, "tailor": tailor_cmd, "make-target": make_target_cmd}
 
 
 if __name__ == "__main__":

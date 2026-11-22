@@ -19,3 +19,4 @@ resumes/
 *.pdf
 *.docx
 KILL
+target.yaml

@@ -33,6 +33,18 @@
     </dl>
     {% else %}<p>No resume yet.</p>{% endif %}
   </section>
+  <section class="resume-panel" aria-labelledby="target-h">
+    <h3 id="target-h">Search profile</h3>
+    {% if target %}
+    <dl>
+      <dt>Target titles</dt><dd>{{ target.titles|join(", ") }}</dd>
+      <dt>Title must contain one of</dt><dd>{{ target.title_words|join(", ") }}</dd>
+      <dt>Title must not contain</dt><dd>{{ target.exclude_words|join(", ") or "Nothing" }}</dd>
+      <dt>Level</dt><dd>{{ target.level or "Not set" }}</dd>
+      <dt>Source</dt><dd>{% if target.source == "target.yaml" %}<code>target.yaml</code> (your edits){% else %}Made from your resume. To change it, copy these values into <code>target.yaml</code>.{% endif %}</dd>
+    </dl>
+    {% else %}<p>No search profile yet. Run <code>python -m jobfinder make-target</code> or import a resume.</p>{% endif %}
+  </section>
   <form action="/upload" method="post" enctype="multipart/form-data" aria-labelledby="upload-h" class="upload">
     <h3 id="upload-h">Import a resume</h3>
     <input type="hidden" name="csrf_token" value="{{ csrf }}">

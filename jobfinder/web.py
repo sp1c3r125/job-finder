@@ -18,6 +18,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from . import db, report
 from . import demo as demo_mod
 from . import resume as resume_mod
+from . import target as target_mod
 from .guard import CappedBackend, default_cap, killed
 from .log import make_logger
 from .resume_docx import write_tailored
@@ -105,6 +106,11 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
                 "skills": len(res.get("skills", [])), "keywords": ", ".join(res.get("search_keywords", [])),
                 "left_out": res.get("left_out")}
 
+    def target_summary():
+        """The search profile in use (target.yaml overrides resume.json) or None."""
+        t, source = target_mod.load_target(resume_mod.load_resume(resume_json), base)
+        return None if not t else {**t, "source": source}
+
     def page(request, name, **ctx):
         con = db.connect(db_path)
         try:
@@ -133,7 +139,8 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
             rs = report.rows(con)
         finally:
             con.close()
-        return page(request, "index.html", rows=rs, resume=None if demo else resume_summary(), threshold=cfg.get("score_threshold", 70))
+        return page(request, "index.html", rows=rs, resume=None if demo else resume_summary(),
+                    target=None if demo else target_summary(), threshold=cfg.get("score_threshold", 70))
 
     @app.get("/job/{source}/{source_id:path}")
     def job(request: Request, source: str, source_id: str):

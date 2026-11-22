@@ -60,7 +60,8 @@ def test_verdict_is_added_as_one_line_to_the_eval_log(tmp_path, monkeypatch):
         def complete(self, system, user, schema=None, tool_name=None, max_tokens=None):
             if tool_name == "submit_resume" and "search_keywords" in (schema or {}).get("properties", {}):
                 return {"name": "Alex Example", "contact": [], "summary": "", "skills": [], "roles": [],
-                        "education": [], "certifications": [], "languages": [], "search_keywords": []}
+                        "education": [], "certifications": [], "languages": [], "search_keywords": [],
+                        "target": {"titles": ["A"], "title_words": ["a"], "exclude_words": [], "level": "mid"}}
             return super().complete(system, user, schema, tool_name, max_tokens)
 
     ev.main(["--runs", "1"], backend=WithImport())

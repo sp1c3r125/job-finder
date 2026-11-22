@@ -14,7 +14,8 @@ def fetch(http, cfg, log=None):
     h = cfg.get("himalayas", {})
     cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["max_age_days"])
     seen, jobs = set(), []
-    for kw in cfg["keywords"]:
+    queries = (cfg.get("target") or {}).get("titles") or cfg["keywords"]       # target titles, else the generic keywords
+    for kw in queries:
         for page in range(1, h.get("max_pages", 3) + 1):
             data = http.get_json(URL, {"q": kw, "sort": "recent", "country": h.get("country", "PH"),
                                        "worldwide": "true", "timezone": h.get("timezone", "UTC+8"), "page": page})

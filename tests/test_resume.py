@@ -34,6 +34,8 @@ EXTRACTED = {
     "education": ["BS Information Technology, University of Example, 2020"],
     "certifications": [], "languages": ["English", "Filipino"],
     "search_keywords": ["automation developer", "n8n", "LLM apps"],
+    "target": {"titles": ["Automation Developer"], "title_words": ["developer", "automation"],
+               "exclude_words": ["intern"], "level": "mid"},
 }
 JOB_TEXT = "We need Kubernetes, LangGraph and AWS. Build LLM agents with n8n."
 TAILORED = {

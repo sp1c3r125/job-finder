@@ -9,6 +9,10 @@ CFG = {"max_age_days": 3, "keywords": ["AI", "automation", "agent", "LLM", "forw
        "user_agent": "test", "request_delay_seconds": 0}
 
 
+TARGET = {"titles": ["AI Automation Engineer", "Solutions Engineer"], "title_words": ["engineer", "automation", "solutions"],
+          "exclude_words": ["trainer", "talent pool", "annotator", "intern"], "level": "mid"}
+
+
 def recent(days=1):
     return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 

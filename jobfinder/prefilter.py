@@ -2,6 +2,8 @@
 import re
 from datetime import datetime, timedelta, timezone
 
+from .target import title_check
+
 
 def _has(term, text):
     flags = 0 if (len(term) <= 3 and term.isupper()) else re.IGNORECASE
@@ -33,7 +35,13 @@ def prefilter(job, cfg, now=None):
     rule = location_rule(job, cfg["location_allow"])
     if not rule:
         return False, "location not allowed"
-    text = f"{job.title}\n{job.description}"
-    if not any(_has(k, text) for k in cfg["keywords"]):
-        return False, "no keyword match"
+    target = cfg.get("target")
+    if target:                                  # the title decides; a keyword in the description is not enough
+        ok, why = title_check(job.title, target)
+        if not ok:
+            return False, why
+    else:                                       # no resume, no search profile: the old keyword rule
+        text = f"{job.title}\n{job.description}"
+        if not any(_has(k, text) for k in cfg["keywords"]):
+            return False, "no keyword match"
     return True, rule
