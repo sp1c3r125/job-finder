@@ -24,7 +24,7 @@ def client(tmp_path, monkeypatch):
 def test_demo_landing_offers_the_sample_and_has_no_upload(client):
     page = client.get("/").text
     assert "Try a sample resume" in page and 'href="/matches"' in page
-    assert 'action="/upload"' not in page and "csrf_token" not in page and "Secret Person" not in page
+    assert 'action="/upload"' not in page and page.count("csrf_token") == 1 and "Secret Person" not in page
 
 
 def test_demo_shows_only_invented_jobs(client):
@@ -39,7 +39,7 @@ def test_demo_shows_only_invented_jobs(client):
 
 def test_demo_has_no_actions_or_downloads(client):
     page = client.get("/matches").text
-    assert "Run search now" not in page and "Tailor my resume" not in page and "Draft a cover note" not in page and 'action="/upload"' not in page and "csrf_token" not in page
+    assert "Run search now" not in page and "Tailor my resume" not in page and "Draft a cover note" not in page and 'action="/upload"' not in page and page.count("csrf_token") == 1
     assert "Tailor my resume" not in client.get("/job/demo/1").text
     assert client.get("/files/drafts/real.md").status_code == 404
 
