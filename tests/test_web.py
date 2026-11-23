@@ -85,6 +85,6 @@ def test_resume_panel_and_no_meta_refresh(tmp_path, monkeypatch):
     (tmp_path / "resume.json").write_text(json.dumps({"name": "Alex Example", "source_file": "abc.md", "imported_at": "2026-11-22T01:02:03+00:00",
         "roles": [{}, {}], "skills": ["Python"], "search_keywords": ["automation", "n8n"], "left_out": ["skill: Kubernetes"]}), encoding="utf-8")
     t = c.get("/").text
-    for x in ("abc.md", "2026-11-22 01:02:03 UTC", "Alex Example", "automation, n8n", "skill: Kubernetes"):
+    for x in ("abc.md", "2026-11-22 01:02 UTC", "Alex Example", "automation, n8n", "skill: Kubernetes"):
         assert x in t
     assert "http-equiv" not in t
