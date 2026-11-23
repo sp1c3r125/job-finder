@@ -54,6 +54,7 @@ Recorded decisions. Do not reopen without new evidence.
 
 ## M3 public demo
 - `DEMO=1` serves only invented data from `demo.db`; write routes answer 405; no downloads, no resume, no model, footer reworded.
+- Exception: POST /theme works in the demo. It sets a theme cookie only, stores nothing and logs nothing.
 - Real data stays private. Source terms: see "Source terms" above, including the We Work Remotely entry (bf85b32).
 
 ## M4 multi-user
@@ -131,3 +132,16 @@ Not built. Each waits for its trigger.
 - Retention: when `jobs.db` is larger than 500 MB, or a run takes longer than 10 minutes, clear the description of rejected jobs older than 14 days (keep the row).
 - Remove the `dashboard.html` export: when phone access works and the file has not been opened for 2 weeks.
 - Microsoft Clarity: never on the private app or the demo. Only Mode A on a future public site (M5 digest or M6).
+
+## Dark mode and theme button (PR #6, recorded 2026-11-23)
+- Light, dark or device setting. The button is a form that posts to `POST /theme` (CSRF token and Origin checked like other POSTs).
+  It sets a `theme` cookie (one year, `SameSite=Lax`, `HttpOnly`, `Secure` over https) or deletes it for "device". Nothing is stored
+  in the database and nothing is logged. It also works in the demo (see M3).
+- No JavaScript was added for it. The CSS follows `data-theme` and the device setting the same way.
+
+## Phone access over Tailscale, PR 2 (2026-11-23)
+- Changed: `ALLOWED_HOSTS_EXTRA` in `.env` (comma-separated) adds hostnames to the Host allow-list and the Origin check. Lowercased; empty items
+  and wildcards are dropped. The demo ignores it. The app still binds 127.0.0.1; `tailscale serve --bg 8000` proxies the tailnet URL to it.
+  The tailnet name stays in `.env`, never in the repo. README has the owner steps. CLAUDE.md now has the Git rules.
+- Skipped: a logon scheduled task to start the dashboard (ask the owner first); `tailscale funnel` and any public exposure (never);
+  installing Tailscale or running its commands (owner steps); a wildcard host (any `*` is ignored on purpose).

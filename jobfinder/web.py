@@ -58,6 +58,16 @@ BUSY_PANEL = ("Search run", "Resume import")  # runs that replace the results wi
 THEMES = ("light", "dark")
 
 
+def extra_hosts(environ=None):
+    """Hostnames from ALLOWED_HOSTS_EXTRA (.env, comma-separated): your tailnet name. Lowercased; empty items and wildcards are dropped."""
+    if environ is None:
+        from .backends import load_env
+        load_env(str(ROOT / ".env"))
+        environ = os.environ
+    items = (h.strip().lower() for h in environ.get("ALLOWED_HOSTS_EXTRA", "").split(","))
+    return [h for h in items if h and "*" not in h]
+
+
 def safe_next(url):
     """A same-site path only: starts with one slash, not "//" or a slash and backslash, and has no control characters
     (a tab would turn "/<tab>/" into "//")."""
@@ -111,10 +121,10 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     runner = Runner(log=None if demo else log)
     app_runner = runner
     token = secrets.token_urlsafe(32)
-    hosts = cfg.get("allowed_hosts") or ["127.0.0.1", "localhost"]
+    hosts = list(cfg.get("allowed_hosts") or ["127.0.0.1", "localhost"]) + ([] if demo else extra_hosts())
     cap = int(cfg.get("daily_call_cap", default_cap()))
     app = FastAPI(title="Job matches", docs_url=None, redoc_url=None, openapi_url=None)
-    # Host allow-list blocks DNS rebinding. Add your tunnel hostname under allowed_hosts in config.yaml.
+    # Host allow-list blocks DNS rebinding. Your tailnet hostname goes in ALLOWED_HOSTS_EXTRA in .env (not in the repo).
     app.state.runner = app_runner                         # tests read and set progress through this
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
 

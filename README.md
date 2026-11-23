@@ -85,8 +85,21 @@ python -m uvicorn jobfinder.web:app --host 127.0.0.1
 ```
 
 Open http://127.0.0.1:8000. Keep `--host 127.0.0.1`: the app has no login, so reach it from your phone only through a
-private tunnel that requires you to sign in. Add the tunnel's hostname to `allowed_hosts` in `config.yaml`
-(default: 127.0.0.1 and localhost); any other Host header gets a 400. Downloads are limited to `drafts/` and `resumes/`.
+private tunnel that requires you to sign in. Any Host header that is not in the allow-list gets a 400 (default: 127.0.0.1
+and localhost, from `allowed_hosts` in `config.yaml`). Downloads are limited to `drafts/` and `resumes/`.
+
+### Phone access over Tailscale (owner steps)
+Tailscale `serve` shares the dashboard with your own devices only. Never use `tailscale funnel`: Funnel puts the page on the public internet.
+1. Install Tailscale on the PC and the phone. Sign in on both with the same account.
+2. If Tailscale asks, turn on MagicDNS and HTTPS certificates in the admin console.
+3. On the PC: `tailscale serve --bg 8000`
+4. `tailscale serve status` shows `https://machine.example-tailnet.ts.net` as "tailnet only" (your own name replaces the example).
+5. Put that hostname (no `https://`) in `.env` as `ALLOWED_HOSTS_EXTRA=machine.example-tailnet.ts.net`
+   (comma-separated for more than one; `.env` is git-ignored, so the name stays out of the repo). Restart the dashboard.
+6. On the phone with Wi-Fi off: open the URL, press the theme button and press "Run search now". Neither may answer 400 or 403.
+7. From a device outside the tailnet, the URL does not open.
+
+If the dashboard answers 400 on the phone, the Host header differs from the name in `.env`; add the exact value shown in the error to `ALLOWED_HOSTS_EXTRA`.
 
 ### Actions on the dashboard (you click, nothing is sent)
 - **Run search now**: starts the same run as `python -m jobfinder` in the background. One job runs at a time; a second click says "busy".
