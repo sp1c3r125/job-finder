@@ -69,7 +69,9 @@ class ClaudeCodeBackend:
         proc = self.run(cmd, input=f"{system}\n\n{user}", capture_output=True, text=True,
                         encoding="utf-8", timeout=timeout or 300)
         if proc.returncode != 0:
-            raise RuntimeError(f"claude exited {proc.returncode}: {proc.stderr[:300]}")
+            # claude -p prints its JSON error to stdout, so keep both streams (never the prompt).
+            raise RuntimeError(f"claude exited {proc.returncode}: stdout={(proc.stdout or '')[:300]!r} "
+                               f"stderr={(proc.stderr or '')[:300]!r}")
         outer = json.loads(proc.stdout)
         if outer.get("is_error"):
             raise RuntimeError(f"claude error: {str(outer.get('result'))[:300]}")

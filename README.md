@@ -1,9 +1,9 @@
 # job-finder
 
 Every morning: fetch new remote AI/automation jobs, keep the ones open to the Philippines, score them
-against your profile with Claude, and draft a short cover note for the best ones.
+against your profile with Claude, and show them best match first. Cover notes are drafted only when you ask (button on the job page).
 Optional: give it your resume. It then searches with keywords from the resume, scores against the resume facts,
-and makes a tailored resume (.docx) for each job that gets a cover note.
+and makes a tailored resume (.docx) for a job when you ask (button on the job page).
 **It never sends anything and never applies anywhere.** Drafts are files you read and send yourself.
 
 ## Sources
@@ -25,13 +25,14 @@ Requests send a user agent, wait 1 second between calls, back off on HTTP 429, a
 ```
 pip install -r requirements.txt          # tests: pip install -r requirements-dev.txt
 copy profile.example.yaml profile.yaml      # then put your real facts in profile.yaml
-set BACKEND=api                              # or claude-code; for api put ANTHROPIC_API_KEY in .env
+# owner step: put BACKEND=claude-code in .env (git-ignored). The default is api, which needs ANTHROPIC_API_KEY in .env.
+set BACKEND=claude-code                      # or put it in .env instead of setting it each time
 python -m jobfinder                          # full run
 python -m jobfinder --no-model               # fetch + pre-filter only, prints counts
 pytest
 ```
 Outputs (all git-ignored): `jobs.db`, `report.xlsx`, `dashboard.html`, `drafts/`, `resumes/`, `logs/decisions.jsonl`.
-Schedule: see `schedule/job-finder-task.xml` and `schedule/run_daily.cmd` (edit paths and BACKEND).
+Schedule: see `schedule/job-finder-task.xml` and `schedule/run_daily.cmd` (edit paths; BACKEND=claude-code is set in the .cmd and in .env).
 
 ## Resume
 ```
@@ -44,7 +45,7 @@ python -m jobfinder tailor <job link from the report>    # tailor for one stored
 2. **Search.** Claude also suggests 3-8 search keywords from the resume. Up to `max_resume_keywords` of them
    are added to `keywords` for the pre-filter and the Himalayas search. Scoring uses `profile.yaml` (optional:
    your location, limits, known gaps) plus the resume facts.
-3. **Tailor.** For each job that gets a cover note, Claude selects, orders and rephrases resume lines for the job.
+3. **Tailor.** For the job you pick (button on the job page, or `python -m jobfinder tailor`), Claude selects, orders and rephrases resume lines for the job.
    Code, not the model, writes names, titles, employers, dates and education. Code rejects a rewritten line that
    adds a number, a tool-like term (AWS, C#, n8n, LangGraph) or a strong job term that its source line lacks,
    and keeps the original line. Skills must come from the resume. Job needs the resume lacks go in "Gaps".
@@ -57,7 +58,7 @@ python -m jobfinder tailor <job link from the report>    # tailor for one stored
   (`claude -p --output-format json --json-schema ... --tools "" --no-session-persistence`, job text on stdin).
 - Invalid model output is retried once, never repaired, and the failure is logged.
 - The model may use only `profile.yaml` facts; anything the job needs that the profile lacks is a gap.
-- Drafts only for score >= 70 with no deal-breakers, under 200 words.
+- Cover notes are drafted on request only (decisions.md), under 200 words.
 - Every decision is one line in `logs/decisions.jsonl`.
 - Resume facts are checked by plain code after the model copies them; a tailored line that fails a check falls
   back to the original wording. The real resume and everything made from it are git-ignored.

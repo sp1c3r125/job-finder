@@ -116,3 +116,11 @@ Recorded decisions. Do not reopen without new evidence.
   and sits after Actions, above the jobs table. In the stacked table layout the wrapper drops `overflow` and `max-block-size`, so a phone page scrolls normally.
   A container query cannot style its own container, so `container-type` moved to a new `.table-container` div around `.table-wrapper`. Guides: `html`, `search-hidden-content`, `responsive-table`, `size-aware-styling`. `legacy-scan`: 0 findings.
 
+## Run reliability, PR 1 (2026-11-23)
+- Changed: `.gitattributes` (`text=auto`, `*.cmd` CRLF, `*.xml` untouched, binaries); a failed `claude -p` call now keeps the first 300 characters of
+  stdout and stderr in the error (never the prompt); a failed runner task writes one `task_failed` line (label, error type, 300 characters) to
+  `logs/decisions.jsonl`; GitHub Actions runs `pytest` on windows-latest, Python 3.12, on each push and PR; tests block non-loopback network connects;
+  README says to put `BACKEND=claude-code` in `.env`, and no longer says the run drafts cover notes (on request only).
+- Skipped: restoring "28 files with only line-ending changes": none differed from master (autocrlf hides CRLF; the index is already LF), and
+  `git add --renormalize .` changed nothing. `get_backend()` still defaults to `api`; the default is unchanged on purpose (no behaviour change).
+  `schedule/job-finder-task.xml` says UTF-16 but is ASCII; left alone.
