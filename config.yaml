@@ -8,6 +8,7 @@ score_threshold: 70
 daily_call_cap: 300         # most model calls per day (UTC); more are refused and logged
 allowed_hosts: [127.0.0.1, localhost]   # your tailnet hostname goes in .env as ALLOWED_HOSTS_EXTRA, not here
 aggregators: [himalayas, remoteok, wwr]
+hosted_sources: [greenhouse, lever, ashby]   # hosted mode only (M4): the sources it may fetch. Not used in local mode.
 rule_min: 40                # a job needs this rule score (0-100, plain code) before the model reads it
 tailor_mode: rank           # rank: reorder by overlap with the job, no model call. rewrite: the model rewords (one call per job)
 research_every_days: 7      # the research source runs at most once in this many days

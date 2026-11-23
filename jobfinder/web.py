@@ -61,7 +61,7 @@ THEMES = ("light", "dark")
 def extra_hosts(environ=None):
     """Hostnames from ALLOWED_HOSTS_EXTRA (.env, comma-separated): your tailnet name. Lowercased; empty items and wildcards are dropped."""
     if environ is None:
-        from .backends import load_env
+        from .settings import load_env
         load_env(str(ROOT / ".env"))
         environ = os.environ
     items = (h.strip().lower() for h in environ.get("ALLOWED_HOSTS_EXTRA", "").split(","))
@@ -111,6 +111,13 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     demo: public read-only build. Reads only demo.db (invented jobs); no write routes, no downloads, no resume,
     no model, no logging of visitors."""
     cfg = cfg if cfg is not None else load_config()
+    if not demo:
+        # Hosted mode has no sign-in yet (M4 P3). Until it exists the app must never serve in that mode,
+        # even when every setting is present: the local app has no login.
+        from .settings import check_startup, load_env
+        load_env(str(ROOT / ".env"))
+        if check_startup(cfg=cfg) == "hosted":
+            raise SystemExit("hosted mode is not available yet: sign-in and per-user data are not built (M4 P3)")
     if demo:
         db_path = db_path or str(ROOT / demo_mod.DEMO_DB)
         demo_mod.seed(db_path)

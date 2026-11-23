@@ -121,3 +121,7 @@ python -m uvicorn jobfinder.web:app --host 127.0.0.1
 `jobs.db`, `resume.json`, `drafts/` or `resumes/`. Every write route answers 405, `/files` is off, no model is called, nothing is logged about visitors.
 Add the public hostname to `allowed_hosts` in `config.yaml`. Before any REAL job data is shown publicly, read the terms of Himalayas,
 Remote OK and We Work Remotely yourself (the We Work Remotely terms page blocked my automated fetch, so that one is unverified).
+
+## Modes
+`JOBFINDER_MODE=local` (default) is everything above. `JOBFINDER_MODE=hosted` is the planned invite-only multi-user service (docs/decisions.md, M4).
+It is not available yet: it refuses to start and lists the missing settings.

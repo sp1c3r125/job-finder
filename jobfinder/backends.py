@@ -18,13 +18,7 @@ SCORE_SCHEMA = {
 DEFAULT_MODEL = "claude-sonnet-5-5"
 
 
-def load_env(path=".env"):
-    if os.path.exists(path):
-        for line in open(path, encoding="utf-8"):
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+from .settings import load_env  # noqa: E402  (one .env loader; kept importable from here)
 
 
 class ApiBackend:
