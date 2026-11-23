@@ -59,8 +59,8 @@ def test_app_role_cannot_read_the_migration_table(pg):
 
 
 def test_migration_is_idempotent(pg):
-    assert db.migrate_pg(pg.admin) == 2
-    assert db.migrate_pg(pg.admin) == 2
+    assert db.migrate_pg(pg.admin) == 3
+    assert db.migrate_pg(pg.admin) == 3
 
 
 def test_connect_pg_refuses_a_non_uuid_user(pg):

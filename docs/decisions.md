@@ -222,3 +222,30 @@ Not built. Each waits for its trigger.
   refused; delete removes every row in every table found from the schema while another user's rows stay; upload file deleted; no `/files`; logs hold no personal text.
 - Owner steps: in Supabase turn signups off, set the redirect URL to `https://<host>/auth/callback`, choose the JWT lifetime, and add invites:
   `INSERT INTO invites (email, invited_at) VALUES ('person@example.com', now()::text)` run as the owner. The privacy page and legal text are P5 and the lawyer.
+
+## M4 P4: worker, per-user and global caps, run-now queue (2026-11-23)
+
+- `python -m jobfinder.worker` is the only hosted process that fetches jobs and spends the owner's model budget on a schedule. A daily pass fetches
+  the shared catalogue once (only companies on a `hosted_sources` source; aggregators are never fetched in hosted mode), then handles each active user
+  on that user's own connection, so row-level security applies as in the web app. `--queue` serves only the users who pressed "Search now" and does not fetch.
+- One worker at a time: a Postgres advisory lock (`db.try_advisory_lock`). A second worker exits with "another worker is running".
+- Per user: pre-filter on the catalogue with their resume keywords and target (`user_jobs`), rule scores, then model scoring through `pipeline.model_gate`
+  (the same selection local mode uses: `rule_min`, `model_daily_jobs`). Hosted users have no profile.yaml or target.yaml, so those files are never read.
+- Limits, checked before every model call in this order: global kill switch, global daily cap (`global_daily_call_cap`, default 300), the user's kill switch,
+  the user's daily cap (`user_daily_call_cap`, default 20). A global limit ends the whole pass; a user's own limit ends only that user.
+  Global state is not per-user: `global_settings` (the owner sets `kill` with SQL) and the SECURITY DEFINER function `global_calls_today()` (a count, no rows).
+  `active_users()` (worker role only) lists users who consented, uploaded a resume and have not asked to be deleted.
+- `usage` records `model`, `tokens_in`, `tokens_out` (a `kind='tokens'` row after each API call, not counted as a call), so cost per user can be read from the table.
+  Local mode has the columns too (SQLite migration 3) and leaves them empty.
+- "Search now": `runs` (per-user, RLS) has one row per user per UTC day, so a second request is refused by the primary key. The web request only inserts the row;
+  the worker does the search. The page shows queued, done, or already used.
+- The worker also finishes account deletions (`sweep_deletions`, using `SUPABASE_SERVICE_KEY`, the only place the admin key is read). A failure leaves the request queued.
+- Hosted mode refuses `BACKEND=claude-code` (P0 check, repeated in `worker.main`). The worker needs `WORKER_DATABASE_URL` (the `jobfinder_worker` role).
+- Refactor with no change for local mode: the model-gate selection in `main.run` moved to `pipeline.model_gate`; `db.save` now calls `_insert_job` + `_set_user_job`.
+  Two existing tests assert the schema version; they now expect the latest migration number (3) instead of a fixed 2. Their data checks are unchanged.
+- Not done here: upload, tailor and note still run inside the web request (they are capped per user); a retry after a refused call logs two refusals; retention is P5.
+- Tests: `tests/test_worker.py` (12) and one in `test_hosted.py`, in the Linux CI job: two invented users scored in one run, a user at the cap stops while the other
+  continues, a user kill switch, the global kill switch, the global cap, one run-now a day, one worker at a time, the app role cannot read the queue or list users,
+  deleted users are skipped and swept, only hosted sources are fetched, hosted refuses claude-code.
+- Owner steps: create the Anthropic key with a spend limit; set `WORKER_DATABASE_URL`, `SUPABASE_SERVICE_KEY` in the host's secret store (worker only, never the web service);
+  schedule the daily pass and a `--queue` pass every few minutes (P6 covers the host).

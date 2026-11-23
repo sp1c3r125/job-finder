@@ -37,6 +37,8 @@ DEFAULT_USER_CAP = 20          # model calls per user per day (UTC); config.yaml
 NOTICES = {"no_resume": "Upload a resume first.", "no_job": "That job is not in your matches.",
            "refused": "The daily limit for model calls is used up. Try again tomorrow.",
            "failed": "That did not work. Try again later.", "drafted": "Cover note drafted.",
+           "queued": "Your search is queued. New matches appear here when it finishes.",
+           "run_used": "You already asked for a search today. The next one is available tomorrow (UTC).",
            "imported": "Resume read.", "import_failed": "The resume could not be read. Check the file and try again."}
 LOG_FIELDS = {"reason", "cap", "used_today", "mode", "attempt"}          # the only free fields a hosted log line may carry
 
@@ -268,7 +270,7 @@ def create_hosted_app(cfg, environ=None, auth=None, backend=None, log_sink=None)
         try:
             facts = db.get_resume_facts(con)
             rows = card_rows(report.rows(con, max(cfg.get("max_age_days", 3), cfg.get("research_max_age_days", 7))))
-            return page(request, "h_home.html", s, rows=rows, has_resume=facts is not None,
+            return page(request, "h_home.html", s, rows=rows, has_resume=facts is not None, run_status=db.run_status_today(con),
                         resume_name=(facts or {}).get("name") or "", roles=len((facts or {}).get("roles", [])),
                         skills=len((facts or {}).get("skills", [])), threshold=cfg.get("score_threshold", 70))
         finally:
@@ -281,6 +283,20 @@ def create_hosted_app(cfg, environ=None, auth=None, backend=None, log_sink=None)
     @app.get("/matches")
     def matches(request: Request):
         return listing(request, need(request))
+
+    @app.post("/run")
+    def run_now(request: Request, csrf_token: str = Form("")):
+        """Queue a search for this user. One a day; the worker does it (the web process never calls the model for it)."""
+        s = need(request)
+        guard_post(request, csrf_token, s)
+        con = user_con(s)
+        try:
+            if not db.get_resume_facts(con):
+                return back("/matches", "no_resume")
+            queued = db.request_run(con)
+        finally:
+            con.close()
+        return back("/matches", "queued" if queued else "run_used")
 
     @app.get("/job/{source}/{source_id:path}")
     def job(request: Request, source: str, source_id: str):

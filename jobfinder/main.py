@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import yaml
 
-from . import db, report, resume, rules, target
+from . import db, pipeline, report, resume, rules, target
 from .guard import capped_default
 from .drafts import eligible
 from .http import HttpClient
@@ -144,14 +144,9 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None, progre
     scored_by_source = Counter()
     # Every saved job that passed the pre-filter and has no score yet, not only the new ones:
     # an earlier run may have saved jobs and stopped before scoring them.
-    waiting = db.unscored_passed(con, now, cfg["max_age_days"], {"research": max_age_days(cfg, "research")})
-    # Model scoring only for the best rule scores: rule score >= rule_min, at most model_daily_jobs a day (UTC).
-    rule_min, daily = cfg.get("rule_min", 40), cfg.get("model_daily_jobs", 15)
-    quota = max(0, daily - db.model_scored_today(con))
-    good = sorted((j for j in waiting if (j.rule_score or 0) >= rule_min), key=lambda j: -(j.rule_score or 0))
-    to_score = good[:quota]
-    log("model_gate", None, waiting=len(waiting), rule_min=rule_min, above_rule_min=len(good), quota=quota,
-        to_score=len(to_score))
+    # Model scoring only for the best rule scores (rule_min, model_daily_jobs a day): see pipeline.model_gate.
+    waiting, good, quota, to_score, rule_min, daily = pipeline.model_gate(
+        con, cfg, now, log, {"research": max_age_days(cfg, "research")})
     print(f"model scoring: {len(waiting)} jobs waiting, {len(good)} with rule score >= {rule_min}, "
           f"{len(to_score)} sent to the model (limit {daily} a day, {daily - quota} already used today)")
     progress("score", to_score=len(to_score), scored=0)

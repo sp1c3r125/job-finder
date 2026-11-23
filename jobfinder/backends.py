@@ -38,6 +38,9 @@ class ApiBackend:
             tools=[{"name": tool_name, "description": "Return the result.", "input_schema": schema}],
             tool_choice={"type": "tool", "name": tool_name},
         )
+        usage = getattr(resp, "usage", None)
+        counts = [getattr(usage, k, None) for k in ("input_tokens", "output_tokens")]
+        self.last_usage = (self.model, *counts) if all(isinstance(c, int) for c in counts) else None   # for the hosted cost record
         for block in resp.content:
             if block.type == "tool_use":
                 return block.input
