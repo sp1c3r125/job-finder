@@ -55,6 +55,16 @@ STRONG_MIN, GOOD_MIN = 80, 65               # fit score bands: Strong fit 80+, G
 BUSY_PANEL = ("Search run", "Resume import")  # runs that replace the results with the progress panel
 
 
+THEMES = ("light", "dark")
+
+
+def safe_next(url):
+    """A same-site path only: starts with one slash, not "//" or a slash and backslash, and has no control characters
+    (a tab would turn "/<tab>/" into "//")."""
+    ok = url.startswith("/") and not url.startswith(("//", "/\\")) and all(ord(c) >= 32 and c != chr(127) for c in url)
+    return url if ok else "/"
+
+
 def fit_band(r):
     """(key, label) for the score badge. A rule score is a different scale, so it never gets a fit label."""
     if r["score_kind"] != "model":
@@ -156,7 +166,10 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
         con = db.connect(db_path)
         try:
             ctx.setdefault("progress_panel", False)
-            ctx.update(site_name=cfg.get("site_name") or "jobfinder", csrf=token, status=runner.take_status(), calls=db.calls_today(con), cap=cap,
+            cookie = request.cookies.get("theme")
+            qs = urlencode([(k, v) for k, v in request.query_params.multi_items() if k != "notice"])
+            ctx.update(theme=cookie if cookie in THEMES else "", next_url=request.url.path + (f"?{qs}" if qs else ""),
+                       site_name=cfg.get("site_name") or "jobfinder", csrf=token, status=runner.take_status(), calls=db.calls_today(con), cap=cap,
                        kill=killed(con, kill_file), demo=demo,
                        has_resume=not demo and resume_mod.load_resume(resume_json) is not None,
                        notice=NOTICES.get(request.query_params.get("notice", "")))
@@ -259,6 +272,20 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     @app.get("/about")
     def about(request: Request):
         return page(request, "about.html")
+
+    @app.post("/theme")
+    def set_theme(request: Request, csrf_token: str = Form(""), theme: str = Form(""), next: str = Form("/")):
+        """Remember light or dark in a cookie, or forget it (device). Stores nothing else and is not logged; also works in the demo."""
+        guard_post(request, csrf_token)
+        if theme not in THEMES + ("device",):
+            raise HTTPException(400, "Unknown theme")
+        response = RedirectResponse(safe_next(next), status_code=303)
+        if theme == "device":
+            response.delete_cookie("theme", path="/")
+        else:
+            secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+            response.set_cookie("theme", theme, max_age=31536000, path="/", samesite="lax", httponly=True, secure=secure)
+        return response
 
     if demo:
         # Every write route exists only to answer 405, so nothing can change data on the public demo.

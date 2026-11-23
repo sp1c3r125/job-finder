@@ -177,23 +177,43 @@ def test_fonts_are_self_hosted_with_licences():
     assert "url(http" not in css and "@import" not in css
 
 
-def test_every_colour_token_has_light_light_dark_and_dark_fallback_values():
+def _css_blocks():
     css = (ROOT / "jobfinder" / "static" / "style.css").read_text(encoding="utf-8")
-    base = css[css.index(":root {"):css.index("@supports (color")]
-    ld = css[css.index("@supports (color"):css.index("@media (prefers-color-scheme")]
-    fb = css[css.index("@media (prefers-color-scheme"):css.index("*, *::before")]
+    base = css[css.index(":root {"):css.index(':root[data-theme="light"]')]
+    ld = css[css.index("@supports (color"):css.index("@supports not (color")]
+    fb = css[css.index("@supports not (color"):css.index("*, *::before")]
+    media = fb[fb.index("@media"):fb.index(':root[data-theme="dark"] {')]
+    attr = fb[fb.index(':root[data-theme="dark"] {'):]
+    return css, base, ld, media, attr
+
+
+def test_every_colour_token_has_light_light_dark_and_dark_fallback_values():
+    css, base, ld, media, attr = _css_blocks()
     tok = lambda block: dict(re.findall(r"(--[\w-]+):\s*([^;]+);", block))
-    light, pairs, dark = tok(base), tok(ld), tok(fb)
+    light, pairs, dark_media, dark_attr = tok(base), tok(ld), tok(media), tok(attr)
     colour = [k for k, v in light.items() if v.strip().startswith(("#", "0 24px"))]
-    assert {"--bg", "--surface", "--fg", "--link", "--navy", "--accent", "--on-accent", "--strong-bg", "--possible-bg"} <= set(colour)
+    assert {"--bg", "--surface", "--panel", "--fg", "--fg-2", "--link", "--navy", "--accent", "--on-accent", "--strong-bg", "--possible-bg"} <= set(colour)
+    assert dark_media == dark_attr                      # the fallbacks follow data-theme the same way as the device setting
     for k in colour:
         m = re.fullmatch(r"light-dark\((.+),\s*([^,]+?)\)", pairs[k].strip()) if "rgb(" not in pairs[k] else None
         if m:
             assert m.group(1).strip() == light[k].strip(), k
-            assert m.group(2).strip() == dark[k].strip(), k
+            assert m.group(2).strip() == dark_media[k].strip(), k
         else:
-            assert k in pairs and k in dark, k
+            assert k in pairs and k in dark_media, k
     assert light["--navy"].strip() == "#0F1B2D" and light["--accent"].strip() == "#F4A62A" and light["--link"].strip() == "#1D5C8C"
+
+
+def test_dark_colours_match_the_dark_design():
+    css, base, ld, media, attr = _css_blocks()
+    dark = {k: v.strip() for k, v in re.findall(r"(--[\w-]+):\s*([^;]+);", attr)}
+    want = {"--bg": "#0D1624", "--navy": "#08101C", "--surface": "#142235", "--panel": "#1B2C44", "--line": "#26364D", "--fg": "#E6ECF2",
+            "--fg-2": "#C9D4E0", "--muted": "#A9B6C6", "--link": "#8CC3F0", "--accent": "#F4A62A", "--on-accent": "#0F1B2D",
+            "--strong-bg": "#2B6FA6", "--strong-fg": "#FFFFFF", "--good-bg": "#1C3350", "--good-fg": "#CFE3F5",
+            "--possible-bg": "#3A2A10", "--possible-fg": "#F7C97A", "--warn": "#F0A35E"}
+    assert {k: dark[k] for k in want} == want
+    assert "color-scheme: light dark" in base and ':root[data-theme="light"] { color-scheme: light; }' in css
+    assert ':root[data-theme="dark"] { color-scheme: dark; }' in css and ':root:not([data-theme="light"])' in media
 
 
 def _lum(h):
@@ -210,11 +230,10 @@ def _ratio(a, b):
 
 def test_text_colour_pairs_meet_4_5_to_1_in_light_and_dark():
     css = (ROOT / "jobfinder" / "static" / "style.css").read_text(encoding="utf-8")
-    fb = css[css.index("@media (prefers-color-scheme"):css.index("*, *::before")]
-    base = css[css.index(":root {"):css.index("@supports (color")]
+    _, base, _, media, _ = _css_blocks()
     pair = lambda block: dict(re.findall(r"(--[\w-]+):\s*(#[0-9A-Fa-f]{6})", block))
-    for name, t in (("light", pair(base)), ("dark", {**pair(base), **pair(fb)})):
-        for fg, bg in (("--fg", "--bg"), ("--fg", "--surface"), ("--muted", "--bg"), ("--muted", "--surface"), ("--link", "--bg"),
+    for name, t in (("light", pair(base)), ("dark", {**pair(base), **pair(media)})):
+        for fg, bg in (("--fg", "--bg"), ("--fg", "--surface"), ("--fg", "--panel"), ("--fg-2", "--surface"), ("--fg-2", "--panel"), ("--muted", "--panel"), ("--link", "--panel"), ("--muted", "--bg"), ("--muted", "--surface"), ("--link", "--bg"),
                        ("--link", "--surface"), ("--on-navy", "--navy"), ("--navy-text", "--navy"), ("--navy-link", "--navy"),
                        ("--on-accent", "--accent"), ("--chip-fg", "--chip-bg"), ("--warn", "--surface"), ("--strong-fg", "--strong-bg"),
                        ("--good-fg", "--good-bg"), ("--possible-fg", "--possible-bg"), ("--rule-fg", "--rule-bg"), ("--rule-fg", "--surface"),
@@ -292,3 +311,84 @@ def test_run_reports_each_stage_and_saves_last_run(tmp_path, monkeypatch):
     last = json.loads(db.get_setting(con, "last_run"))
     con.close()
     assert last["checked"] == 2 and last["at"].startswith("20")
+
+
+# ---- theme button -------------------------------------------------------------------------------------------------
+
+def token_of(c, path="/matches"):
+    return re.search(r'name="csrf_token" value="([^"]+)"', c.get(path).text).group(1)
+
+
+def post_theme(c, **form):
+    return c.post("/theme", data={"csrf_token": token_of(c), **form}, follow_redirects=False)
+
+
+def test_theme_cookie_is_set_for_light_and_dark(tmp_path):
+    c, _ = build(tmp_path)
+    for value in ("light", "dark"):
+        r = post_theme(c, theme=value, next="/matches?filter=strong")
+        assert r.status_code == 303 and r.headers["location"] == "/matches?filter=strong"
+        cookie = r.headers["set-cookie"]
+        assert f"theme={value}" in cookie and "Max-Age=31536000" in cookie and "Path=/" in cookie
+        assert "HttpOnly" in cookie and "SameSite=lax" in cookie and "Secure" not in cookie
+
+
+def test_theme_cookie_is_secure_on_https_and_deleted_for_device(tmp_path):
+    c, _ = build(tmp_path)
+    r = c.post("/theme", data={"csrf_token": token_of(c), "theme": "dark"}, headers={"x-forwarded-proto": "https"}, follow_redirects=False)
+    assert "Secure" in r.headers["set-cookie"]
+    r = post_theme(c, theme="device")
+    assert r.status_code == 303 and r.headers["location"] == "/"
+    assert "theme=" in r.headers["set-cookie"] and "Max-Age=0" in r.headers["set-cookie"] and "Path=/" in r.headers["set-cookie"]
+
+
+def test_theme_bad_value_is_400_and_missing_token_or_bad_origin_is_refused(tmp_path):
+    c, _ = build(tmp_path)
+    assert post_theme(c, theme="purple").status_code == 400
+    assert post_theme(c).status_code == 400
+    assert c.post("/theme", data={"theme": "dark"}).status_code == 403
+    assert c.post("/theme", data={"csrf_token": "wrong", "theme": "dark"}).status_code == 403
+    r = c.post("/theme", data={"csrf_token": token_of(c), "theme": "dark"}, headers={"origin": "https://evil.example"})
+    assert r.status_code == 403 and "theme" not in c.cookies
+
+
+def test_theme_next_accepts_only_same_site_paths(tmp_path):
+    c, _ = build(tmp_path)
+    for good in ("/", "/matches", "/matches?sort=newest", "/job/ashby/1", "/about"):
+        assert post_theme(c, theme="dark", next=good).headers["location"] == good
+    for bad in ("//evil.example", "/\\evil.example", "https://evil.example", "evil", "", "/\t/evil.example", "/a\nb", "javascript:alert(1)"):
+        assert post_theme(c, theme="dark", next=bad).headers["location"] == "/", bad
+
+
+def test_data_theme_follows_the_cookie_and_ignores_other_values(tmp_path):
+    c, _ = build(tmp_path)
+    assert "data-theme" not in c.get("/matches").text
+    for value, attr in (("light", True), ("dark", True), ("Dark", False), ("auto", False), ("", False), ("dark-x", False)):
+        c.cookies.clear()
+        c.cookies.set("theme", value)
+        html = c.get("/matches").text
+        assert (f'<html lang="en" data-theme="{value}">' in html) if attr else "data-theme" not in html, value
+
+
+def test_header_has_one_theme_form_with_both_buttons_and_the_footer_has_device(tmp_path):
+    c, _ = build(tmp_path)
+    html = c.get("/matches").text
+    assert html.count('action="/theme"') == 1
+    start = html.index('<form class="theme-form"')
+    form = html[start:html.index("</form>", start)]
+    assert 'aria-label="Dark mode"' in form and 'aria-label="Light mode"' in form and 'name="csrf_token"' in form and 'name="next" value="/matches"' in form
+    assert form.count('name="theme"') == 2 and "Dark mode</span>" in form and "Light mode</span>" in form
+    assert 'form="theme-form" name="theme" value="device">Use device setting' in html
+    css = (ROOT / "jobfinder" / "static" / "style.css").read_text(encoding="utf-8")
+    assert ".theme-to-light { display: none; }" in css and "inline-size: 44px" in css and 'data-theme="dark"] .theme-to-dark { display: none; }' in css
+
+
+def test_theme_works_in_the_demo_and_stores_nothing(tmp_path):
+    app = web.create_app(str(tmp_path / "demo.db"), dict(CFG), base_dir=tmp_path, log_path=str(tmp_path / "log.jsonl"), demo=True)
+    c = TestClient(app, base_url="http://127.0.0.1")
+    r = c.post("/theme", data={"csrf_token": token_of(c, "/"), "theme": "dark", "next": "/matches"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/matches" and "theme=dark" in r.headers["set-cookie"]
+    assert 'data-theme="dark"' in c.get("/matches").text
+    assert c.post("/run", follow_redirects=False).status_code == 405
+    log = tmp_path / "log.jsonl"
+    assert not log.exists() or "theme" not in log.read_text(encoding="utf-8")

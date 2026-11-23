@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if theme %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,6 +15,16 @@
         {% block nav %}<a href="/matches"{% block nav_matches %}{% endblock %}>My matches</a>
         <a href="/about">About the data</a>{% endblock %}
       </nav>
+      <form class="theme-form" id="theme-form" action="/theme" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <button class="theme-btn theme-to-dark" type="submit" name="theme" value="dark" aria-label="Dark mode">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+          <span class="theme-text">Dark mode</span></button>
+        <button class="theme-btn theme-to-light" type="submit" name="theme" value="light" aria-label="Light mode">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
+          <span class="theme-text">Light mode</span></button>
+      </form>
     </div>
   </header>
   {% if demo %}<p class="banner"><span class="wrap">Demo: every job, company and score here is invented. Nothing is real and nothing is sent anywhere.</span></p>{% endif %}
@@ -40,6 +50,7 @@
       <a href="https://himalayas.app">Himalayas</a>; <a href="https://remoteok.com">Remote OK</a>;
       <a href="https://weworkremotely.com">We Work Remotely</a>. <a href="/about">About the data</a></p>
     {% endif %}
+    <p><button class="link-btn" type="submit" form="theme-form" name="theme" value="device">Use device setting</button> for light or dark.</p>
     </div>
   </footer>
 </body>
