@@ -44,6 +44,32 @@ class CappedBackend:
         return inner.complete(*args, **kwargs)
 
 
+class UserCappedBackend:
+    """Hosted mode: the same checks as CappedBackend, for one signed-in user, on a connection from `connect()`
+    (a function returning a new connection for that user). The cap and the kill switch are that user's own."""
+
+    def __init__(self, inner, connect, cap, log):
+        self.inner, self.connect, self.cap, self.log = inner, connect, cap, log
+        self.stopped = False
+
+    def complete(self, *args, **kwargs):
+        con = self.connect()
+        try:
+            reason = "kill_switch" if db.get_setting(con, "kill") == "1" else (
+                "daily_cap" if db.calls_today(con) >= self.cap else "")
+            if reason:
+                self.stopped = True
+                db.add_usage(con, "refused", reason)
+                self.log("model_refused", None, reason=reason, cap=self.cap)
+                raise Refused(reason)
+            db.add_usage(con, "call")
+            self.log("model_call", None, used_today=db.calls_today(con), cap=self.cap)
+        finally:
+            con.close()
+        inner = self.inner() if callable(self.inner) else self.inner
+        return inner.complete(*args, **kwargs)
+
+
 def default_cap(config_path="config.yaml"):
     try:
         with open(config_path, encoding="utf-8") as f:

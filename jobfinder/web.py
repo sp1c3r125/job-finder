@@ -112,12 +112,13 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     no model, no logging of visitors."""
     cfg = cfg if cfg is not None else load_config()
     if not demo:
-        # Hosted mode has no sign-in yet (M4 P3). Until it exists the app must never serve in that mode,
-        # even when every setting is present: the local app has no login.
+        # Hosted mode is a different app (sign-in, per-user data in Postgres). The local app below has no login, so it
+        # must never serve in hosted mode.
         from .settings import check_startup, load_env
         load_env(str(ROOT / ".env"))
         if check_startup(cfg=cfg) == "hosted":
-            raise SystemExit("hosted mode is not available yet: sign-in and per-user data are not built (M4 P3)")
+            from .hosted import create_hosted_app
+            return create_hosted_app(cfg)
     if demo:
         db_path = db_path or str(ROOT / demo_mod.DEMO_DB)
         demo_mod.seed(db_path)

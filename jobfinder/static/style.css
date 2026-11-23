@@ -255,3 +255,6 @@ input[type="file"]::file-selector-button { font: inherit; font-weight: 600; min-
 }
 .link-btn { display: inline-flex; align-items: center; min-block-size: 44px; padding: 0 0.25rem; border: 0; background: none; color: var(--link); font: inherit; text-decoration: underline; cursor: pointer; }
 .link-btn:hover { color: var(--link-hover); }
+
+input[type="email"], input[type="text"] { font: inherit; font-size: 1rem; min-block-size: 44px; padding: 0 0.75rem; border: 1.5px solid var(--drop-line); border-radius: 0.625rem; background: var(--surface); color: var(--fg); max-inline-size: 100%; }
+input[type="checkbox"] { inline-size: 1.25rem; block-size: 1.25rem; accent-color: var(--accent); vertical-align: middle; margin-inline-end: 0.5rem; }

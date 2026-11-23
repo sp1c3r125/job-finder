@@ -56,11 +56,15 @@ def test_hosted_refuses_demo_and_empty_source_list():
     assert any("hosted_sources" in p for p in settings.hosted_problems(GOOD, {"hosted_sources": []}))
 
 
-def test_app_does_not_serve_in_hosted_mode_even_when_configured(monkeypatch, tmp_path):
+def test_hosted_mode_serves_the_hosted_app_not_the_local_one(monkeypatch, tmp_path):
+    """The local app has no login. In hosted mode create_app must hand back the signed-in app, which has no /files route."""
+    from fastapi.testclient import TestClient
     for k, v in GOOD.items():
         monkeypatch.setenv(k, v)
-    with pytest.raises(SystemExit, match="not available yet"):
-        web.create_app(str(tmp_path / "t.db"), {"hosted_sources": ["greenhouse"]}, base_dir=tmp_path)
+    app = web.create_app(str(tmp_path / "t.db"), {"hosted_sources": ["greenhouse"]}, base_dir=tmp_path)
+    c = TestClient(app, base_url="https://jobs.example.test", follow_redirects=False)
+    assert c.get("/").status_code == 303 and c.get("/").headers["location"] == "/login"
+    assert c.get("/files/drafts/x.md").status_code in (404, 405)
 
 
 def test_app_refuses_hosted_mode_without_settings(monkeypatch, tmp_path):

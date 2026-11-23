@@ -187,3 +187,38 @@ Not built. Each waits for its trigger.
 - New dependency: `psycopg[binary]` (Postgres driver). Not used in local mode unless hosted code runs.
 - Owner step: create the Supabase staging project (Singapore). Put the owner connection string in your secret store; the deploy step runs
   `migrate_pg` with it, then `set_pg_role_login` for the two roles. Turn off the Supabase Data API for the `public` schema (the app does not use it).
+
+## M4 P3: sign-in, invites, consent, delete account, resume facts in the database (2026-11-23)
+- `JOBFINDER_MODE=hosted` now serves a different app (`jobfinder/hosted.py`). The local app has no login and still refuses to run in hosted mode;
+  the P0 "not available yet" stop is gone because `create_app` hands back the signed-in app.
+- Sign-in is Supabase Auth over REST, no SDK (`jobfinder/auth.py`, httpx). Email link only, no password. Supabase is set not to create users;
+  the app also checks its own `invites` table before sending a link and again when the link is used. Every address gets the same answer on the
+  sign-in page, so it does not reveal who is invited. The link opens a page with a "Continue" button that does the verify step, because mail
+  scanners open links and would use up a one-time link.
+- The session cookie holds Supabase's own JWT (HttpOnly, Secure, SameSite=Lax). The JWT is verified here against Supabase's public keys
+  (new dependency `PyJWT[crypto]`: signature, expiry, issuer, audience; ES256, RS256 and EdDSA only, never `none` or a shared secret).
+  Session length is the JWT lifetime set in Supabase (owner setting; there is no refresh yet, so people sign in again when it ends).
+- CSRF: one token per session (HMAC of the session cookie with `SESSION_SECRET`) plus the Origin check. A token from another session or from
+  before sign-in is refused.
+- `invites` is not per-user. The app role cannot read it; it can only call `is_invited(email)` (SECURITY DEFINER). The owner adds invites with SQL.
+- New per-user tables in Postgres migration 2, all with RLS: `consents` (version and time), `resume_facts` (the checked facts and the resume text, as
+  JSON text), `deletion_requests`. `job_scores.draft_text` holds hosted cover notes. All four are in `PER_USER_TABLES`, so the isolation tests cover them.
+- Delete account: the user's request deletes every row of that user in every per-user table (one transaction, under RLS) and queues a
+  `deletion_requests` row. That row stays so the worker, which holds a separate admin secret, can remove the Supabase login (`auth.delete_user`,
+  `db.pending_deletions`, `db.finish_deletion`). The user request never calls the admin API. The worker loop itself is P4. Until it runs, the login
+  exists but has no data and no invite use. Backups: how long deleted rows live in Supabase backups is a question for the lawyer.
+- Files: hosted mode keeps none. Resume facts and cover notes are in the database. The tailored .docx is built in memory and streamed.
+  An upload is written to a temporary file, read, and deleted (also when reading fails); its file name is not kept. There is no `/files` route.
+- Model calls from the hosted app go through `guard.UserCappedBackend`: that user's own daily cap (`user_daily_call_cap`, default 20) and kill switch.
+  Global cap, token counts and the worker queue are P4. Upload, tailor and note run inside the request for now (P4 moves them to the worker).
+- Logs: hosted log lines hold the event, a 12-character hash of the user id, counts and short reasons only. Resume text, names, file names and
+  model error messages are dropped (`make_hosted_log`). They go to standard output.
+- Refactor with no change for local mode: `resume.import_resume` now calls `extract_facts` (read, extract, check; saves nothing) and writes the file itself.
+  `resume_docx.write_docx` accepts a file-like object. `base.html` and `job.html` have `hosted` / `draft_text` branches that local never sets.
+- UI follows modern-web-guidance (`autofill-sign-in-form`, `forms`): `type=email` with `autocomplete=email`, `required`, visible labels, no placeholder-only labels.
+  Delete uses a typed confirmation field, not a dialog, so there is no script.
+- Tests: `tests/test_hosted.py` (21, need `TEST_DATABASE_URL`, run in the Linux CI job): fake Supabase on an httpx mock transport; uninvited email
+  refused; forged, expired, wrong-audience, wrong-issuer, HS256 and `none` tokens refused; missing, wrong and cross-session CSRF refused; foreign Origin
+  refused; delete removes every row in every table found from the schema while another user's rows stay; upload file deleted; no `/files`; logs hold no personal text.
+- Owner steps: in Supabase turn signups off, set the redirect URL to `https://<host>/auth/callback`, choose the JWT lifetime, and add invites:
+  `INSERT INTO invites (email, invited_at) VALUES ('person@example.com', now()::text)` run as the owner. The privacy page and legal text are P5 and the lawyer.

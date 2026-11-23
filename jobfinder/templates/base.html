@@ -13,7 +13,7 @@
       <a class="brand" href="/">{% include "_logo.html" %}<span class="brand-name">{{ site_name }}</span>{% if demo %}<span class="brand-demo">demo</span>{% endif %}</a>
       <nav aria-label="Main">
         {% block nav %}<a href="/matches"{% block nav_matches %}{% endblock %}>My matches</a>
-        <a href="/about">About the data</a>{% endblock %}
+        {% if hosted %}{% if account %}<a href="/account">Account</a>{% endif %}{% else %}<a href="/about">About the data</a>{% endif %}{% endblock %}
       </nav>
       <form class="theme-form" id="theme-form" action="/theme" method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf }}">
@@ -44,6 +44,9 @@
     {% if demo %}
     <p>{{ site_name }} demo with invented data. No real jobs, companies, people or resumes are shown, and no model is called.
       <a href="/about">About this demo</a></p>
+    {% elif hosted %}
+    <p>{{ site_name }}, invite-only beta. Drafts and tailored resumes are never sent anywhere; you send them yourself.</p>
+    <p>Job data sources: the public Greenhouse, Lever and Ashby job-board APIs. Each match links to the original post.</p>
     {% else %}
     <p>{{ site_name }}. Personal use only. Drafts and tailored resumes are never sent anywhere; you send them yourself.</p>
     <p>Job data sources: Greenhouse, Lever and Ashby public job-board APIs;

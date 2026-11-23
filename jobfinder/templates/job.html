@@ -27,6 +27,8 @@
       {% if r.deal_breakers_list %}<ul>{% for x in r.deal_breakers_list %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p>None.</p>{% endif %}</section>{% endif %}
     <section aria-labelledby="ds"><h2 id="ds">Job description</h2><div class="description">{{ description }}</div></section>
   </div>
+  {% if draft_text %}<section class="job-extra" aria-labelledby="note-h"><h2 id="note-h">Cover note draft</h2>
+    <p class="job-note">Draft only. Read it and change it before you use it. Nothing was sent.</p><div class="description">{{ draft_text }}</div></section>{% endif %}
   <footer>
     {% if not demo %}
     <form class="inline" action="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}/note" method="post">

@@ -85,6 +85,10 @@ def seed(pg):
         db.set_score(con, j, {"fit_score": 80 + n}, draft_path=f"d{n}.md")
         db.add_usage(con, "call")
         db.set_setting(con, "kill", str(n))
+        db.add_consent(con)
+        db.set_resume_facts(con, {"name": f"Person {n}"})
+        con.execute("INSERT INTO deletion_requests (user_id,requested_at) VALUES (?,?)", (user, "t"))
+        con.commit()
         con.close()
 
 
