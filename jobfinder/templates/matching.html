@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}finding your matches{% endblock %}
+{% set state_text = {"done": "Done", "active": "In progress", "next": "Next"} %}
+{% block main %}
+<section class="progress-panel" aria-labelledby="match-title">
+  <h1 id="match-title">Finding jobs that fit your resume</h1>
+  <p>This page does not refresh by itself. Select Check progress to see the latest. You can leave this page; the work keeps going.</p>
+  <progress max="4" value="{{ done_count }}" aria-label="Overall progress, {{ done_count }} of 4 steps done">{{ done_count }} of 4</progress>
+  <ol class="stages">
+    <li class="stage" data-state="{{ states[0] }}">
+      <h2>Read your resume <span class="state">· {{ state_text[states[0]] }}</span></h2>
+      {% if kind == "import" %}<p>Reading your file and copying out your roles, skills and dates.</p>
+      {% elif resume %}<p>Found {{ resume.roles }} role{{ "" if resume.roles == 1 else "s" }} and {{ resume.skills }} skill{{ "" if resume.skills == 1 else "s" }} in {{ resume.file }}.
+        {% if resume.left_out %}We left out {{ resume.left_out|length }} line{{ "" if resume.left_out|length == 1 else "s" }} we could not find word for word.{% endif %}</p>
+      {% endif %}
+    </li>
+    <li class="stage" data-state="{{ states[1] }}">
+      <h2>Picked the roles you fit <span class="state">· {{ state_text[states[1]] }}</span></h2>
+      {% if kind != "import" and target %}<ul class="roles">{% for t in target.titles %}<li>{{ t }}</li>{% endfor %}</ul>
+      {% else %}<p>We choose job titles to search for from what your resume says.</p>{% endif %}
+    </li>
+    <li class="stage" data-state="{{ states[2] }}">
+      <h2>Checking job posts <span class="state">· {{ state_text[states[2]] }}</span></h2>
+      {% if prog.checked is defined %}
+      <dl class="counts">
+        <div><dt>Posts checked</dt><dd>{{ "{:,}".format(prog.checked) }}</dd></div>
+        <div><dt>Match your roles</dt><dd>{% if prog.roles is none %}—{% else %}{{ "{:,}".format(prog.roles) }}{% endif %}</dd></div>
+        <div><dt>Open to the Philippines</dt><dd>{% if prog.open_ph is defined %}{{ "{:,}".format(prog.open_ph) }}{% else %}…{% endif %}</dd></div>
+      </dl>
+      {% endif %}
+      <p>From company job boards and remote job sites. Each job links to its original post.</p>
+    </li>
+    <li class="stage" data-state="{{ states[3] }}">
+      <h2>Scoring your matches <span class="state">· {{ state_text[states[3]] }}</span></h2>
+      {% if prog.to_score is defined %}<p>The model has read {{ prog.scored or 0 }} of {{ prog.to_score }} jobs so far.</p>{% endif %}
+      <p>Fixed rules score every match first, so results show at once. Then the model reads the best {{ model_jobs }} a day.</p>
+    </li>
+  </ol>
+  <div class="progress-actions">
+    <a class="btn btn-main btn-big" href="/">Check progress</a>
+    <a href="/matches">See the matches so far</a>
+  </div>
+</section>
+{% endblock %}

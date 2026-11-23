@@ -6,12 +6,18 @@ class Runner:
     def __init__(self):
         self._lock = threading.Lock()
         self.state = {"state": "idle", "label": "", "message": ""}
+        self.progress = {}                  # stage and counts of the running task, saved after each stage
+
+    def set_progress(self, stage, **counts):
+        """Save the stage the running task has reached and its counts (posts checked, roles matched, scored...)."""
+        self.progress = {**self.progress, "stage": stage, **counts}
 
     def start(self, label, fn):
         """Run fn() in a thread. Returns False (and does nothing) if something is already running."""
         if not self._lock.acquire(blocking=False):
             return False
         self.state = {"state": "running", "label": label, "message": ""}
+        self.progress = {}
 
         def work():
             try:

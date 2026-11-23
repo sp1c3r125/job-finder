@@ -11,6 +11,8 @@ from . import db
 from .eval import load_jobs
 
 DEMO_DB = "demo.db"
+RESUME_FILE = "sample-resume.pdf"            # shown in the side panel of the demo results; no such file exists
+ROLES = ["AI Automation Engineer", "Solutions Engineer", "Implementation Engineer", "Workflow Developer"]   # invented
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 
 
@@ -19,7 +21,7 @@ def fake_score(job, expect, i):
     blocked = expect.startswith("deal-breaker")
     score = 41 + i % 9 if blocked else 93 - (i * 7) % 36
     return {"fit_score": score,
-            "matching_evidence": [] if score < 60 else ["Invented example: workflow automation in Python and n8n",
+            "matching_evidence": [] if score < 60 else ["Invented example: workflow automation in Python and webhooks",
                                                          "Invented example: calls an LLM API from Python"],
             "gaps": ["Invented example gap: no Kubernetes"] if i % 3 == 0 else [],
             "deal_breakers": [expect.replace("deal-breaker ", "Invented example: ")] if blocked else [],

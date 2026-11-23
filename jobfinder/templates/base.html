@@ -4,33 +4,43 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>{% block title %}Job matches{% endblock %}</title>
+  <title>{{ site_name }}: {% block title %}your matches{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header>
-    <p class="brand"><a href="/">Job matches</a>{% if demo %} <small>(demo)</small>{% endif %}</p>
-    {% if demo %}<p class="banner">Demo: every job, company and score here is invented. Nothing is real and nothing is sent anywhere.</p>{% endif %}
-  </header>
-  <main>
-    <div role="status" class="status">
-      {% if notice %}<p>{{ notice }}</p>{% endif %}
-      {% if status and status.state == "running" %}<p>Running: {{ status.label }}… <a href="/">Refresh status</a></p>
-      {% elif status and status.state == "done" %}<p>Last action finished: {{ status.label }}. {{ status.message }}</p>
-      {% elif status and status.state == "failed" %}<p><strong>Failed:</strong> {{ status.label }}. {{ status.message }}</p>{% endif %}
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/">{% include "_logo.html" %}<span class="brand-name">{{ site_name }}</span>{% if demo %}<span class="brand-demo">demo</span>{% endif %}</a>
+      <nav aria-label="Main">
+        {% block nav %}<a href="/matches"{% block nav_matches %}{% endblock %}>My matches</a>
+        <a href="/about">About the data</a>{% endblock %}
+      </nav>
     </div>
-    {% block main %}{% endblock %}
+  </header>
+  {% if demo %}<p class="banner"><span class="wrap">Demo: every job, company and score here is invented. Nothing is real and nothing is sent anywhere.</span></p>{% endif %}
+  <main>
+    <div class="wrap">
+      <div role="status" class="status">
+        {% if notice %}<p>{{ notice }}</p>{% endif %}
+        {% if status and status.state == "running" and not progress_panel %}<p>Running: {{ status.label }}… <a href="/">Check progress</a></p>
+        {% elif status and status.state == "done" %}<p>Last action finished: {{ status.label }}. {{ status.message }}</p>
+        {% elif status and status.state == "failed" %}<p><strong>Failed:</strong> {{ status.label }}. {{ status.message }}</p>{% endif %}
+      </div>
+    </div>
+    {% block content %}<div class="wrap page">{% block main %}{% endblock %}</div>{% endblock %}
   </main>
-  <footer>
+  <footer class="site-footer">
+    <div class="wrap">
     {% if demo %}
-    <p>Demo with invented data. No real jobs, companies, people or resumes are shown, and no model is called.
+    <p>{{ site_name }} demo with invented data. No real jobs, companies, people or resumes are shown, and no model is called.
       <a href="/about">About this demo</a></p>
     {% else %}
-    <p>Personal use only. Drafts and tailored resumes are never sent anywhere; you send them yourself.</p>
+    <p>{{ site_name }}. Personal use only. Drafts and tailored resumes are never sent anywhere; you send them yourself.</p>
     <p>Job data sources: Greenhouse, Lever and Ashby public job-board APIs;
       <a href="https://himalayas.app">Himalayas</a>; <a href="https://remoteok.com">Remote OK</a>;
       <a href="https://weworkremotely.com">We Work Remotely</a>. <a href="/about">About the data</a></p>
     {% endif %}
+    </div>
   </footer>
 </body>
 </html>

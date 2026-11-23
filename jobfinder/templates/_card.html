@@ -1,0 +1,41 @@
+{% macro card(r, id) %}
+<article class="job" aria-labelledby="{{ id }}">
+  <header>
+    <div class="job-title">
+      <h2 id="{{ id }}"><a href="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}">{{ r.title }}</a></h2>
+      <p class="company">{{ r.company }}</p>
+      <p class="meta">{% if r.location %}{{ r.location }} · {% endif %}Posted {% if r.posted_iso %}{{ when(r.posted_iso, False) }}{% else %}{{ r.posted }}{% endif %} ·{% include "_credit.html" %}</p>
+    </div>
+    <p class="badge badge-{{ r.fit }}"><span class="num">{{ r.score }}</span><span class="label">{{ r.fit_label }}</span></p>
+  </header>
+  {% if r.score_kind != "model" %}
+  <p class="job-note">Scored by plain rules only. The model has not read this job.</p>
+  {% elif r.evidence_list or r.gaps_list %}
+  <div class="job-body">
+    {% if r.evidence_list %}<section aria-label="Why it fits">
+      <h3>Why it fits</h3>
+      <ul>{% for x in r.evidence_list %}<li>{{ x }}</li>{% endfor %}</ul>
+    </section>{% endif %}
+    {% if r.gaps_list %}<section aria-label="Gaps">
+      <h3 class="gaps">Gaps</h3>
+      <ul>{% for x in r.gaps_list %}<li>{{ x }}</li>{% endfor %}</ul>
+    </section>{% endif %}
+  </div>
+  {% endif %}
+  <footer>
+    {% if not demo %}
+    {% if has_resume %}<form class="inline" action="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}/tailor" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <button class="btn-main" type="submit">Tailor my resume</button>
+    </form>{% endif %}
+    <form class="inline" action="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}/note" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <button class="btn-second" type="submit">Draft a cover note</button>
+    </form>
+    {% endif %}
+    <a class="btn btn-link" href="{{ r.url }}" target="_blank" rel="noopener noreferrer">Open job post<span class="visually-hidden"> (opens in a new tab)</span></a>
+    {% if r.resume %}<a class="btn btn-link" href="/files/{{ r.resume|fileurl }}">Tailored resume</a>{% endif %}
+    {% if r.draft %}<a class="btn btn-link" href="/files/{{ r.draft|fileurl }}">Cover note draft</a>{% endif %}
+  </footer>
+</article>
+{% endmacro %}

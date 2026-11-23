@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>jobfinder: upload your resume (phone)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F9}
+*{box-sizing:border-box}
+a{color:#1D5C8C}
+</style>
+</helmet>
+<div style="width: 390px; font-family: Inter, system-ui, sans-serif; color: #0F1B2D; background: #F6F7F9">
+
+  <header style="background: #0F1B2D; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between">
+    <a href="#top" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: #FFFFFF; min-height: 44px">
+      <svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" fill="#F4A62A"></rect><path d="M8 14.5l4 4 8-9" fill="none" stroke="#0F1B2D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -0.02em">jobfinder</span>
+    </a>
+    <button type="button" aria-label="Open menu" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: #1B2A40; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path></svg>
+    </button>
+  </header>
+
+  <main id="top">
+    <section aria-labelledby="hero-title-m" style="background: #0F1B2D; color: #FFFFFF; padding: 28px 16px 36px; display: flex; flex-direction: column; gap: 16px">
+      <p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #F4A62A">Remote AI jobs · open to the Philippines</p>
+      <h1 id="hero-title-m" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 38px; line-height: 1.06; letter-spacing: -0.03em; font-weight: 700">Skip the search box. Upload your resume.</h1>
+      <p style="margin: 0; font-size: 17px; line-height: 1.55; color: #C9D4E0">We find the remote jobs that fit you, show why, and tailor your resume for each one.</p>
+
+      <div style="background: #FFFFFF; color: #0F1B2D; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; margin-top: 4px">
+        <label for="resume-file-m" style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 14px; border: 2px dashed #8FA6BE; border-radius: 12px; background: #F5F8FB; text-align: center; cursor: pointer">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1D5C8C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M12 17v-6"></path><path d="M9.5 13.5L12 11l2.5 2.5"></path></svg>
+          <span style="font-size: 18px; font-weight: 600">Upload your resume</span>
+          <span style="font-size: 14px; color: #5B6779">PDF or DOCX, up to 5 MB</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; border-radius: 10px; background: #F4A62A; color: #0F1B2D; font-weight: 600; font-size: 16px">Choose a file</span>
+        </label>
+        <input id="resume-file-m" type="file" accept=".pdf,.docx" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">
+        <a href="Matching.dc.html" style="display: flex; justify-content: center; align-items: center; min-height: 48px; border-radius: 10px; border: 1.5px solid #1D5C8C; color: #1D5C8C; font-weight: 600; font-size: 16px; text-decoration: none">Try a sample resume</a>
+        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #4E5B6D; text-align: center">Used only to find your matches. Delete it any time.</p>
+      </div>
+      <p style="margin: 0; font-size: 15px; color: #C9D4E0; text-align: center"><a href="Results.dc.html" style="color: #FFFFFF; display: inline-block; padding: 12px 0">Or browse today's jobs</a></p>
+    </section>
+
+    <section aria-label="Our promises" style="padding: 24px 16px 8px">
+      <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+        <li style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 12px; font-size: 16px; font-weight: 500">
+          <svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#1D5C8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Never applies for you</li>
+        <li style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 12px; font-size: 16px; font-weight: 500">
+          <svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#1D5C8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Only facts from your resume</li>
+        <li style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 12px; font-size: 16px; font-weight: 500">
+          <svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#1D5C8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Every job link checked</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="how-m" style="padding: 28px 16px 8px; display: flex; flex-direction: column; gap: 14px">
+      <h2 id="how-m" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 28px; letter-spacing: -0.02em">How it works</h2>
+      <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+        <li style="display: flex; gap: 14px; align-items: flex-start">
+          <span style="flex: none; display: inline-flex; width: 36px; height: 36px; border-radius: 10px; background: #0F1B2D; color: #F4A62A; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700">1</span>
+          <div><h3 style="margin: 0 0 4px; font-size: 17px; font-weight: 600">We read your resume</h3><p style="margin: 0; font-size: 15px; line-height: 1.55; color: #4E5B6D">Roles, skills and dates. We show you anything we leave out.</p></div>
+        </li>
+        <li style="display: flex; gap: 14px; align-items: flex-start">
+          <span style="flex: none; display: inline-flex; width: 36px; height: 36px; border-radius: 10px; background: #0F1B2D; color: #F4A62A; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700">2</span>
+          <div><h3 style="margin: 0 0 4px; font-size: 17px; font-weight: 600">We search where jobs are posted</h3><p style="margin: 0; font-size: 15px; line-height: 1.55; color: #4E5B6D">Company job boards and remote job sites, every day.</p></div>
+        </li>
+        <li style="display: flex; gap: 14px; align-items: flex-start">
+          <span style="flex: none; display: inline-flex; width: 36px; height: 36px; border-radius: 10px; background: #0F1B2D; color: #F4A62A; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700">3</span>
+          <div><h3 style="margin: 0 0 4px; font-size: 17px; font-weight: 600">You decide where to apply</h3><p style="margin: 0; font-size: 15px; line-height: 1.55; color: #4E5B6D">See why each job fits. Tailor your resume. Apply on the job page.</p></div>
+        </li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="sample-m" style="padding: 28px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+      <h2 id="sample-m" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 28px; letter-spacing: -0.02em">A sample match</h2>
+      <article style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start">
+          <div style="min-width: 0">
+            <h3 style="margin: 0; font-size: 19px; font-weight: 700">AI Automation Engineer</h3>
+            <p style="margin: 4px 0 0; font-size: 15px; color: #33415A">Northwind Health · Remote: Philippines</p>
+          </div>
+          <div style="flex: none; display: flex; flex-direction: column; align-items: center; padding: 8px 12px; border-radius: 12px; background: #1D5C8C; color: #FFFFFF">
+            <span style="font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; line-height: 1">86</span>
+            <span style="font-size: 12px; font-weight: 600">Strong fit</span>
+          </div>
+        </div>
+        <p style="margin: 0; font-size: 15px; line-height: 1.55"><strong style="color: #1D5C8C">Why it fits:</strong> built an invoice workflow in Python and n8n that cut manual entry from 6 hours to 1 hour a week.</p>
+        <p style="margin: 0; font-size: 15px; line-height: 1.55"><strong style="color: #A2560C">Gap:</strong> no healthcare experience.</p>
+        <a href="Results.dc.html" style="display: flex; justify-content: center; align-items: center; min-height: 48px; border-radius: 10px; background: #F4A62A; color: #0F1B2D; font-weight: 600; font-size: 16px; text-decoration: none">Tailor my resume</a>
+      </article>
+    </section>
+  </main>
+
+  <footer style="border-top: 1px solid #DCE2EA; background: #FFFFFF; padding: 20px 16px; font-size: 13px; line-height: 1.5; color: #4E5B6D">
+    <p style="margin: 0">A portfolio project. Demo jobs and companies are invented.</p>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -21,8 +21,14 @@ def client(tmp_path, monkeypatch):
     return TestClient(app, base_url="http://127.0.0.1", follow_redirects=False)
 
 
-def test_demo_shows_only_invented_jobs(client):
+def test_demo_landing_offers_the_sample_and_has_no_upload(client):
     page = client.get("/").text
+    assert "Try a sample resume" in page and 'href="/matches"' in page
+    assert 'action="/upload"' not in page and "csrf_token" not in page and "Secret Person" not in page
+
+
+def test_demo_shows_only_invented_jobs(client):
+    page = client.get("/matches").text
     assert page.count("Fake Company") >= 20 and "Demo (invented)" in page
     assert "Secret Person" not in page and "Personal use only" not in page
     assert "Invented" in page and "invented" in page
@@ -32,8 +38,8 @@ def test_demo_shows_only_invented_jobs(client):
 
 
 def test_demo_has_no_actions_or_downloads(client):
-    page = client.get("/").text
-    assert "Run search now" not in page and 'action="/upload"' not in page and "csrf_token" not in page
+    page = client.get("/matches").text
+    assert "Run search now" not in page and "Tailor my resume" not in page and "Draft a cover note" not in page and 'action="/upload"' not in page and "csrf_token" not in page
     assert "Tailor my resume" not in client.get("/job/demo/1").text
     assert client.get("/files/drafts/real.md").status_code == 404
 
@@ -42,6 +48,12 @@ def test_demo_has_no_actions_or_downloads(client):
 @pytest.mark.parametrize("path", ["/run", "/upload", "/kill", "/job/demo/1/tailor", "/job/demo/1/note"])
 def test_every_write_route_is_405(client, method, path):
     assert getattr(client, method)(path).status_code == 405
+
+
+def test_demo_results_use_the_sample_side_panel(client):
+    page = client.get("/matches").text
+    assert "jobs fit the sample resume" in page and "sample-resume.pdf" in page and "AI Automation Engineer" in page
+    assert "Secret Person" not in page and "Delete my data" not in page
 
 
 def test_about_page_says_the_data_is_invented(client):

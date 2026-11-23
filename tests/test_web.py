@@ -22,8 +22,8 @@ def make_client(tmp_path, **cfg):
     return TestClient(app, base_url="http://127.0.0.1")
 
 
-def test_dashboard_lists_jobs_best_first_and_escapes(tmp_path):
-    r = make_client(tmp_path).get("/")
+def test_matches_lists_jobs_best_first_and_escapes(tmp_path):
+    r = make_client(tmp_path).get("/matches")
     assert r.status_code == 200
     t = r.text
     assert t.index("Automation Lead") < t.index("AI Engineer") < t.index("Agent &lt;b&gt;Dev")
@@ -65,7 +65,7 @@ def test_security_headers_on_every_response_and_no_store_on_html(tmp_path):
     from fastapi.testclient import TestClient
     app = web.create_app(str(tmp_path / "h.db"), dict(CFG), base_dir=tmp_path, log_path=str(tmp_path / "l.jsonl"))
     c = TestClient(app, base_url="http://127.0.0.1")
-    for path in ("/", "/about", "/static/style.css", "/nope"):
+    for path in ("/", "/matches", "/about", "/static/style.css", "/nope"):
         h = c.get(path).headers
         assert h["x-content-type-options"] == "nosniff" and h["referrer-policy"] == "strict-origin-when-cross-origin"
         assert h["content-security-policy"] == web.SECURITY_HEADERS["Content-Security-Policy"]
@@ -81,10 +81,10 @@ def test_resume_panel_and_no_meta_refresh(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     app = web.create_app(str(tmp_path / "h.db"), dict(CFG), base_dir=tmp_path, log_path=str(tmp_path / "l.jsonl"))
     c = TestClient(app, base_url="http://127.0.0.1")
-    assert "No resume yet" in c.get("/").text
+    assert "Choose your resume" in c.get("/").text and "No resume yet" in c.get("/matches").text
     (tmp_path / "resume.json").write_text(json.dumps({"name": "Alex Example", "source_file": "abc.md", "imported_at": "2026-11-22T01:02:03+00:00",
         "roles": [{}, {}], "skills": ["Python"], "search_keywords": ["automation", "n8n"], "left_out": ["skill: Kubernetes"]}), encoding="utf-8")
     t = c.get("/").text
-    for x in ("abc.md", "2026-11-22 01:02 UTC", "Alex Example", "automation, n8n", "skill: Kubernetes"):
+    for x in ("abc.md", "2026-11-22", "Alex Example", "automation, n8n", "skill: Kubernetes"):
         assert x in t
     assert "http-equiv" not in t
