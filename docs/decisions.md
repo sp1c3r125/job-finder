@@ -145,3 +145,14 @@ Not built. Each waits for its trigger.
   The tailnet name stays in `.env`, never in the repo. README has the owner steps. CLAUDE.md now has the Git rules.
 - Skipped: a logon scheduled task to start the dashboard (ask the owner first); `tailscale funnel` and any public exposure (never);
   installing Tailscale or running its commands (owner steps); a wildcard host (any `*` is ignored on purpose).
+
+## M4 P0: mode switch and startup check (2026-11-23)
+- Trigger met: the owner decided to offer the service to other job seekers. Plan: one codebase, two modes. `JOBFINDER_MODE=local|hosted`, default local.
+  Local is unchanged. Hosted is an invite-only beta (up to 20 users, Philippines, free), built in milestones P0-P6.
+- Added `jobfinder/settings.py`: the one `.env` loader (`backends.load_env` still imports from it), `mode()`, and `check_startup()`.
+  Hosted mode refuses to start and lists every problem (names only, never values) unless `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+  `ANTHROPIC_API_KEY`, `SESSION_SECRET` and `ALLOWED_HOSTS_EXTRA` are set, `BACKEND` is `api` (claude-code is refused), `DEMO` is not 1,
+  and `config.yaml` has `hosted_sources`. An unknown mode value is an error, not a fallback to local.
+- Even with every setting present, `create_app` refuses to serve in hosted mode until sign-in exists (P3): the local app has no login.
+- Changes to the plan found in the code: per-user job state moves to a `user_jobs` table (P1); research stays off in hosted v1;
+  RLS uses its own non-bypass role, not the Supabase service role. See the approved plan.
