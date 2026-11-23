@@ -56,7 +56,8 @@ def test_second_concurrent_run_is_refused(env):
     assert first.headers["location"].endswith("notice=started")
     second = c.post("/run", data={"csrf_token": token})
     assert second.headers["location"].endswith("notice=busy")
-    assert "Running: Search run" in c.get("/").text
+    busy = c.get("/").text
+    assert "Finding jobs that fit your resume" in busy and "Check progress" in busy and "http-equiv" not in busy
     gate.set()
     wait_idle(c)
     assert c.post("/run", data={"csrf_token": token}).headers["location"].endswith("notice=started")   # free again
@@ -101,14 +102,14 @@ def test_kill_switch_from_the_page_blocks_model_calls(env):
     fake = FakeBackend([GOOD] * 5)
     c, token, _ = client(env, backend=fake)
     assert c.post("/kill", data={"csrf_token": token, "on": "1"}).headers["location"].endswith("kill_on")
-    assert "Kill switch: <strong>ON</strong>" in c.get("/").text
+    assert "Kill switch: <strong>ON</strong>" in c.get("/matches").text
     c.post("/upload", data={"csrf_token": token}, files={"file": ("r.txt", RESUME_TEXT)})
     wait_idle(c)
     assert fake.calls == []                             # nothing reached the model
     log = [json.loads(x) for x in (env / "log.jsonl").read_text(encoding="utf-8").splitlines()]
     assert any(x["event"] == "model_refused" and x["reason"] == "kill_switch" for x in log)
     c.post("/kill", data={"csrf_token": token, "on": "0"})
-    assert "Kill switch: <strong>off</strong>" in c.get("/").text
+    assert "Kill switch: <strong>off</strong>" in c.get("/matches").text
 
 
 def test_tailor_needs_a_resume_and_a_known_job(env):
@@ -141,7 +142,7 @@ def test_end_to_end_upload_sample_resume_then_tailor_and_open_docx(env):
     assert c.post("/upload", data={"csrf_token": token}, files={"file": ("resume.sample.md", sample)}).status_code == 303
     wait_idle(c)
     assert json.loads((env / "resume.json").read_text(encoding="utf-8"))["name"] == "Alex Example"
-    assert "Tailor my resume to this job" in c.get("/job/ashby/1").text
+    assert "Tailor my resume" in c.get("/job/ashby/1").text
     assert c.post("/job/ashby/1/tailor", data={"csrf_token": token}).status_code == 303
     page = wait_idle(c, "tailored resume written")
     assert "tailored resume written" in page
@@ -160,7 +161,7 @@ def test_cover_note_is_drafted_only_on_request_and_saved(env):
     b = FakeBackend([{"note": "I build n8n workflows. Gap: no Kubernetes."}])
     c, token, path = client(env, backend=b)
     page = c.get("/job/ashby/1").text
-    assert "Draft cover note" in page and b.calls == []                                # nothing is drafted by itself
+    assert "Draft a cover note" in page and b.calls == []                                # nothing is drafted by itself
     assert c.post("/job/ashby/1/note", data={}).status_code == 403                     # CSRF token needed
     assert c.post("/job/ashby/zzz/note", data={"csrf_token": token}).headers["location"].endswith("no_job")
     assert c.post("/job/ashby/1/note", data={"csrf_token": token}).status_code == 303

@@ -114,10 +114,10 @@ def test_dashboard_shows_the_search_profile_and_the_override(tmp_path):
     (tmp_path / "resume.json").write_text(json.dumps({"name": "Alex", "target": TARGET}), encoding="utf-8")
     c = TestClient(web.create_app(db_path=str(tmp_path / "j.db"), cfg=CFG, base_dir=tmp_path, log_path=str(tmp_path / "l.jsonl")),
                    headers={"host": "127.0.0.1"})
-    html = c.get("/").text
-    assert "Search profile" in html and "AI Automation Engineer" in html and "trainer" in html and "Made from your resume" in html
+    html = c.get("/matches").text
+    assert "Roles we search for" in html and "AI Automation Engineer" in html and "trainer" in html and "Made from your resume" in html
     (tmp_path / "target.yaml").write_text(yaml.safe_dump(dict(TARGET, titles=["Edited Title"])), encoding="utf-8")
-    html = c.get("/").text
+    html = c.get("/matches").text
     assert "Edited Title" in html and "your edits" in html
 
 
