@@ -1,6 +1,7 @@
 """Daily run: (import new resume) -> fetch -> pre-filter -> score -> draft + tailor resume -> report.
 Never sends or applies. Extra commands: import-resume FILE, tailor JOB_URL."""
 import argparse
+import json
 import sys
 from pathlib import Path
 from collections import Counter
@@ -19,6 +20,7 @@ from .scoring import load_profile, score_job
 from .dedupe import dedupe, norm_key
 from .sources import AGGREGATORS, ATS, research as research_source
 from .tailor import tailor_resume
+from .target import title_check
 
 
 def collect(http, cfg, companies, log):
@@ -43,8 +45,10 @@ def collect(http, cfg, companies, log):
     return jobs, returned
 
 
-def run(argv=None, backend=None, http=None, root=None, research_get=None):
-    """root: the folder holding resume.json, resume/ and profile.yaml (default: the current folder)."""
+def run(argv=None, backend=None, http=None, root=None, research_get=None, progress=None):
+    """root: the folder holding resume.json, resume/ and profile.yaml (default: the current folder).
+    progress: optional function(stage, **counts), called after each stage ("fetch", "filter", "score", "done")."""
+    progress = progress or (lambda stage, **counts: None)
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv and argv[0] in COMMANDS:
         return COMMANDS[argv[0]](argv[1:], backend)
@@ -101,6 +105,9 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
     before = len(jobs)
     jobs = dedupe(jobs)
     log("dedupe", None, before=before, after=len(jobs))
+    progress("fetch", checked=len(jobs))
+    # Saved for the results page ("N posts checked at <time>"); written by the daily run too, not only the web button.
+    db.set_setting(con, "last_run", json.dumps({"at": now.isoformat(timespec="seconds"), "checked": len(jobs)}))
     for job in jobs:
         if db.is_seen(con, job):
             continue
@@ -112,6 +119,11 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
         log("prefilter_pass" if ok else "prefilter_reject", job, reason=rule)
         if ok:
             passed_by_source[job.source] += 1
+
+    target_cfg = cfg.get("target")
+    progress("filter", checked=len(jobs),
+             roles=sum(1 for j in jobs if title_check(j.title, target_cfg)[0]) if target_cfg else None,
+             open_ph=sum(1 for j in jobs if prefilter(j, cfg, now)[0]))
 
     # Rule score (plain code, no model) for every job that passed the pre-filter; recomputed each run so a changed
     # profile or weight takes effect. Decides which jobs get a model call.
@@ -142,6 +154,7 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
         to_score=len(to_score))
     print(f"model scoring: {len(waiting)} jobs waiting, {len(good)} with rule score >= {rule_min}, "
           f"{len(to_score)} sent to the model (limit {daily} a day, {daily - quota} already used today)")
+    progress("score", to_score=len(to_score), scored=0)
     for job in to_score:
         if getattr(backend, "stopped", False):       # kill switch or daily cap: stop, do not try every job
             log("run_stopped", None, reason="model refused")
@@ -161,10 +174,12 @@ def run(argv=None, backend=None, http=None, root=None, research_get=None):
         db.set_score(con, job, score, draft_path, resume_path)
         scored += 1
         scored_by_source[job.source] += 1
+        progress("score", scored=scored)
         log("scored", job, fit_score=score["fit_score"], deal_breakers=score["deal_breakers"], draft=draft_path,
             resume=resume_path)
     if research_stats:
         print(f"research: {passed_by_source['research']} passed the pre-filter, {scored_by_source['research']} scored")
+    progress("done", scored=scored)
     rs = report.rows(con, max(cfg["max_age_days"], max_age_days(cfg, "research")))
     report.write_xlsx(rs)
     report.write_dashboard(rs)
