@@ -5,7 +5,7 @@ not be an aggregator. Failures are dropped and logged."""
 import json
 import re
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -14,8 +14,14 @@ from ..models import Job
 from ..text import clean_text, html_to_text, to_iso
 
 TOOLS = "WebSearch,WebFetch"
-BLOCKED_DOMAINS = ("linkedin.com", "indeed.com", "glassdoor.com", "wellfound.com", "workatastartup.com", "remote.co")
+# Job boards whose terms ban bots, scraping or aggregation. A domain stays here until its terms are checked.
+# Each entry matches the domain and every subdomain, never a look-alike name (notjobstreet.com).
+BLOCKED_DOMAINS = ("jobstreet.com", "jobsdb.com", "seek.com.au", "seek.co.nz", "linkedin.com", "indeed.com",
+                   "glassdoor.com", "ziprecruiter.com", "foundit.in", "remote.co", "wellfound.com", "workatastartup.com",
+                   "seek.com", "jobstreet.com.ph", "jobstreet.com.my", "jobstreet.com.sg", "jobstreet.co.id", "lnkd.in")
 MAX_TITLES = 8
+MAX_REDIRECTS = 5
+_REDIRECT = (301, 302, 303, 307, 308)
 
 _S = {"type": "string"}
 _POSTING = {"type": "object", "properties": {"company": _S, "title": _S, "url": _S, "posted": _S, "location": _S},
@@ -26,22 +32,22 @@ SCHEMA = {"type": "object", "properties": {"results": {"type": "array", "items":
 SYSTEM = """You find real, currently open job postings on the web, using web search and web fetch.
 Find REMOTE postings for the job title given, posted in the last 7 days, that are open to candidates in the
 Philippines, APAC or worldwide. Use the company's own careers page or its applicant-tracking page (Greenhouse,
-Lever, Ashby, Workable and similar). Do not return LinkedIn, Indeed, Glassdoor, Wellfound, Work at a Startup or
-Remote.co links. Open each page you return and confirm it is a live posting for that role.
+Lever, Ashby, Workable and similar). Do not return links on these job boards or their subdomains: {BLOCKED}. Open each page you return and confirm it is a live posting for that role.
 company: the employer. title: the posting's exact title. url: the direct link to the posting.
 posted: the posting date as YYYY-MM-DD, or "" if the page shows none. location: the location text as the posting says it.
-Return only postings you saw on a page. Never guess a URL or a date. Return an empty list if you find none."""
+Return only postings you saw on a page. Never guess a URL or a date. Return an empty list if you find none.""".replace("{BLOCKED}", ", ".join(BLOCKED_DOMAINS))
 
 _LOGIN_PATH = re.compile(r"(?i)/(log-?in|sign-?in|signup|sign-up|sso|auth|oauth)(/|$)")
 
 
 def blocked(url):
-    host = (urlparse(url).hostname or "").lower()
+    host = (urlparse(url).hostname or "").lower().rstrip(".")
     return next((d for d in BLOCKED_DOMAINS if host == d or host.endswith("." + d)), None)
 
 
 def default_get(url, user_agent):
-    return requests.get(url, headers={"User-Agent": user_agent}, timeout=30, allow_redirects=True)
+    """One request, no redirects: check_page follows them by hand so a blocked host is never contacted."""
+    return requests.get(url, headers={"User-Agent": user_agent}, timeout=30, allow_redirects=False)
 
 
 _LDJSON = re.compile(r"(?is)<script[^>]+type=[\"']?application/ld\+json[\"']?[^>]*>(.*?)</script>")
@@ -87,11 +93,24 @@ def check_page(result, get):
     d = blocked(url)
     if d:
         return none, f"blocked domain {d}"
-    try:
-        resp = get(url)
-    except Exception as e:  # noqa: BLE001
-        return none, f"request failed: {type(e).__name__}"
-    final = str(getattr(resp, "url", url) or url)
+    cur = url
+    for hop in range(MAX_REDIRECTS + 1):
+        try:
+            resp = get(cur)
+        except Exception as e:  # noqa: BLE001
+            return none, f"request failed: {type(e).__name__}"
+        loc = (getattr(resp, "headers", None) or {}).get("Location")
+        if resp.status_code not in _REDIRECT or not loc:
+            break
+        if hop == MAX_REDIRECTS:
+            return none, "too many redirects"
+        cur = urljoin(cur, loc)
+        d = blocked(cur)
+        if d:                                                          # checked before the hop: no request is sent
+            return none, f"redirects to blocked domain {d}"
+        if urlparse(cur).scheme not in ("http", "https"):
+            return none, "redirects to a non-http link"
+    final = str(getattr(resp, "url", cur) or cur)
     d = blocked(final)
     if d:
         return none, f"redirects to blocked domain {d}"
@@ -143,9 +162,9 @@ def search_title(backend, title, log, today=None):
 
 
 def fetch(backend, cfg, log, get=None, stats=None):
-    """All verified research postings for the target titles. stats (a dict) gets 'returned' and 'link_ok' counts."""
+    """All verified research postings for the target titles. stats (a dict) gets 'returned', 'blocked' and 'link_ok' counts."""
     stats = stats if stats is not None else {}
-    stats.update(returned=0, link_ok=0, finished=False)
+    stats.update(returned=0, blocked=0, link_ok=0, finished=False)
     answered = stopped = 0
     titles = ((cfg.get("target") or {}).get("titles") or [])[:MAX_TITLES]
     if not titles:
@@ -169,6 +188,11 @@ def fetch(backend, cfg, log, get=None, stats=None):
             if key in seen:
                 continue
             seen.add(key)
+            d = blocked(key)
+            if d:                                   # dropped before the link check: no request is ever sent
+                stats["blocked"] += 1
+                log("research_dropped", None, query=title, company=r["company"], title=r["title"], url=key, reason=f"blocked domain {d}")
+                continue
             info, why = check_page(r, get)
             if why:
                 log("research_dropped", None, query=title, company=r["company"], title=r["title"], url=key, reason=why)
@@ -177,5 +201,6 @@ def fetch(backend, cfg, log, get=None, stats=None):
             job = to_job(r, info["text"], posted=info["posted"], expires=info["expires"])
             log("research_link_ok", job, query=title)
             jobs.append(job)
+    log("research_blocked", None, count=stats["blocked"])
     stats["finished"] = bool(answered) and not stopped     # a run the cap cut short, or where every call failed, may retry
     return jobs

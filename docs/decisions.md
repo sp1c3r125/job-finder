@@ -84,6 +84,13 @@ Recorded decisions. Do not reopen without new evidence.
 - Weights (title 40, skills 30, years 15, location 15) and `rule_min` were kept after calibration (`python -m jobfinder calibrate`).
   Only 2 saved jobs scored 70 or more, so tuning further would overfit.
 
+
+## Research: blocked job boards
+- JobStreet/JobsDB/SEEK: not a source. Terms 7(d) and 9(b) ban bots and scraping. The SEEK API is for posting jobs only. Revisit only with written consent from SEEK. A blocked domain stays blocked until its terms are checked.
+- The list is BLOCKED_DOMAINS in jobfinder/sources/research.py (the only copy). Each entry matches the domain and every subdomain, not look-alikes.
+  A blocked result is dropped before the link check, so no request goes to it. The count per run is logged as `research_blocked`.
+  Redirects are followed by hand (5 hops at most); a hop to a blocked domain stops before the request is sent.
+
 ## UI layout fixes (2026-11-23)
 - Baseline: Baseline Widely available (current Chrome, Edge, Firefox, Safari incl. iOS Safari). No JavaScript, no new dependencies, existing CSS tokens only.
   An external audit (axe-core, 390 and 1280 px, light and dark) found 0 accessibility violations; these are layout fixes.
@@ -108,3 +115,4 @@ Recorded decisions. Do not reopen without new evidence.
 - Follow-ups after the browser check (same day): the setup `<details>` has `open` when there is no resume.json, so the upload form shows on first use,
   and sits after Actions, above the jobs table. In the stacked table layout the wrapper drops `overflow` and `max-block-size`, so a phone page scrolls normally.
   A container query cannot style its own container, so `container-type` moved to a new `.table-container` div around `.table-wrapper`. Guides: `html`, `search-hidden-content`, `responsive-table`, `size-aware-styling`. `legacy-scan`: 0 findings.
+

@@ -23,8 +23,9 @@ def posting(**kw):
 
 
 class Resp:
-    def __init__(self, text=PAGE, status=200, url=None):
+    def __init__(self, text=PAGE, status=200, url=None, location=None):
         self.text, self.status_code, self.url = text, status, url
+        self.headers = {"Location": location} if location else {}
 
 
 class FakeGet:
@@ -73,6 +74,58 @@ def test_blocked_domains_are_never_requested(url):
     assert why.startswith("blocked domain") and get.calls == []
 
 
+@pytest.mark.parametrize("url,is_blocked", [
+    ("https://ph.jobstreet.com/job/123", True), ("https://boards.greenhouse.io/acme/jobs/1", False),
+    ("https://notjobstreet.com/x", False), ("https://jobstreet.com/x", True), ("https://www.seek.com.au/job/1", True),
+    ("https://nz.seek.co.nz/job/1", True), ("https://ph.jobsdb.com/job/1", True), ("https://www.ziprecruiter.com/jobs/1", True),
+    ("https://www.foundit.in/job/1", True), ("https://jobstreet.com.evil.example/x", False), ("https://employer.seek.com/x", True), ("https://seek.com/x", True),
+    ("https://myseek.com/x", False), ("https://www.jobstreet.com.ph/en/job/1", True), ("https://my.jobstreet.com.my/job/1", True),
+    ("https://sg.jobstreet.com.sg/job/1", True), ("https://id.jobstreet.co.id/job/1", True), ("https://lnkd.in/abc", True),
+    ("https://notlnkd.in/abc", False)])
+def test_blocked_matches_domain_and_subdomains_only(url, is_blocked):
+    assert bool(research.blocked(url)) is is_blocked
+
+
+def test_fetch_counts_and_logs_blocked_results_and_sends_no_request_to_them(logs):
+    events, log = logs
+    cfg = dict(CFG, target=dict(TARGET, titles=["A"]))
+    b = FakeBackend([{"results": [posting(url="https://ph.jobstreet.com/job/123"), posting(url="https://www.seek.com.au/job/9"),
+                                  posting()]}])
+    get = FakeGet({GOOD_URL: Resp()})
+    stats = {}
+    jobs = research.fetch(b, cfg, log, get=get, stats=stats)
+    assert [j.url for j in jobs] == [GOOD_URL] and stats["blocked"] == 2 and get.calls == [GOOD_URL]
+    assert [f["count"] for e, f in events if e == "research_blocked"] == [2]
+
+
+def test_redirect_to_blocked_domain_is_not_requested():
+    get = FakeGet({GOOD_URL: Resp(status=302, location="https://www.linkedin.com/jobs/1")})
+    text, why = research.check_link(posting(), get)
+    assert (text, why) == ("", "redirects to blocked domain linkedin.com") and get.calls == [GOOD_URL]
+
+
+def test_redirects_between_allowed_hosts_are_followed_by_hand():
+    u = [f"https://h{i}.example.com/p" for i in range(4)]
+    get = FakeGet({GOOD_URL: Resp(status=301, location=u[0]), u[0]: Resp(status=302, location="/next"),
+                   "https://h0.example.com/next": Resp(status=307, location=u[2]), u[2]: Resp()})
+    text, why = research.check_link(posting(), get)
+    assert why == "" and "Build LLM agents" in text and len(get.calls) == 4
+
+
+def test_too_many_redirects_are_dropped():
+    pages = {GOOD_URL: Resp(status=302, location="https://h1.example.com/")}
+    pages.update({f"https://h{i}.example.com/": Resp(status=302, location=f"https://h{i + 1}.example.com/") for i in range(1, 7)})
+    get = FakeGet(pages)
+    assert research.check_link(posting(), get) == ("", "too many redirects") and len(get.calls) == 6
+
+
+def test_five_redirects_are_still_allowed():
+    pages = {GOOD_URL: Resp(status=302, location="https://h1.example.com/")}
+    pages.update({f"https://h{i}.example.com/": Resp(status=302, location=f"https://h{i + 1}.example.com/") for i in range(1, 5)})
+    pages["https://h5.example.com/"] = Resp()
+    assert research.check_link(posting(), FakeGet(pages))[1] == ""
+
+
 def test_lookalike_domain_is_not_blocked():
     assert research.blocked("https://notlinkedin.com/x") is None and research.blocked("https://remote.company.com/x") is None
 
@@ -88,7 +141,7 @@ def test_one_call_per_title_web_tools_only_and_only_checked_urls_kept(logs):
     get = FakeGet({GOOD_URL: Resp(), "https://x.com/404": Resp(status=404)})
     stats = {}
     jobs = research.fetch(b, cfg, log, get=get, stats=stats)
-    assert [j.url for j in jobs] == [GOOD_URL] and stats == {"returned": 4, "link_ok": 1, "finished": True}
+    assert [j.url for j in jobs] == [GOOD_URL] and stats == {"returned": 4, "blocked": 1, "link_ok": 1, "finished": True}
     assert b.tools == [research.TOOLS, research.TOOLS] == ["WebSearch,WebFetch"] * 2 and len(b.calls) == 2
     assert "A" in b.calls[0][1] and "B" in b.calls[1][1]
     assert get.calls == [GOOD_URL, "https://x.com/404"]                 # the blocked link was not requested, the repeat not re-fetched
@@ -254,3 +307,7 @@ def test_a_run_where_every_call_failed_is_not_marked_finished(tmp_path, monkeypa
     b = FakeBackend([RuntimeError("claude exited 1")])
     assert run_in(tmp_path, monkeypatch, True, b, FakeGet({})) == 0
     assert sqlite3.connect("t.db").execute("select count(*) from settings where key='research_last_run'").fetchone() == (0,)
+
+
+def test_search_prompt_lists_every_blocked_domain():
+    assert all(d in research.SYSTEM for d in research.BLOCKED_DOMAINS) and "{BLOCKED}" not in research.SYSTEM
