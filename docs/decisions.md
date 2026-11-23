@@ -124,3 +124,10 @@ Recorded decisions. Do not reopen without new evidence.
 - Skipped: restoring "28 files with only line-ending changes": none differed from master (autocrlf hides CRLF; the index is already LF), and
   `git add --renormalize .` changed nothing. `get_backend()` still defaults to `api`; the default is unchanged on purpose (no behaviour change).
   `schedule/job-finder-task.xml` says UTF-16 but is ASCII; left alone.
+
+## Deferred (proposed 2026-11-23)
+Not built. Each waits for its trigger.
+- ATS source review: after 14 daily runs, if Greenhouse, Lever and Ashby passed 0 jobs, cut `companies.yaml` to the boards that passed at least one job.
+- Retention: when `jobs.db` is larger than 500 MB, or a run takes longer than 10 minutes, clear the description of rejected jobs older than 14 days (keep the row).
+- Remove the `dashboard.html` export: when phone access works and the file has not been opened for 2 weeks.
+- Microsoft Clarity: never on the private app or the demo. Only Mode A on a future public site (M5 digest or M6).
