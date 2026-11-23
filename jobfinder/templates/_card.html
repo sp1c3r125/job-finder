@@ -12,14 +12,14 @@
   <p class="job-note">Scored by plain rules only. The model has not read this job.</p>
   {% elif r.evidence_list or r.gaps_list %}
   <div class="job-body">
-    {% if r.evidence_list %}<section aria-label="Why it fits">
+    {% if r.evidence_list %}<div>
       <h3>Why it fits</h3>
       <ul>{% for x in r.evidence_list %}<li>{{ x }}</li>{% endfor %}</ul>
-    </section>{% endif %}
-    {% if r.gaps_list %}<section aria-label="Gaps">
+    </div>{% endif %}
+    {% if r.gaps_list %}<div>
       <h3 class="gaps">Gaps</h3>
       <ul>{% for x in r.gaps_list %}<li>{{ x }}</li>{% endfor %}</ul>
-    </section>{% endif %}
+    </div>{% endif %}
   </div>
   {% endif %}
   <footer>

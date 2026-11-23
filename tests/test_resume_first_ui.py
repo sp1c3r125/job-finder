@@ -192,7 +192,7 @@ def test_every_colour_token_has_light_light_dark_and_dark_fallback_values():
     tok = lambda block: dict(re.findall(r"(--[\w-]+):\s*([^;]+);", block))
     light, pairs, dark_media, dark_attr = tok(base), tok(ld), tok(media), tok(attr)
     colour = [k for k, v in light.items() if v.strip().startswith(("#", "0 24px"))]
-    assert {"--bg", "--surface", "--panel", "--fg", "--fg-2", "--link", "--navy", "--accent", "--on-accent", "--strong-bg", "--possible-bg"} <= set(colour)
+    assert {"--bg", "--surface", "--panel", "--fg", "--fg-2", "--link", "--navy", "--accent", "--on-accent", "--strong-bg", "--possible-bg", "--pill-on-bg", "--pill-on-fg"} <= set(colour)
     assert dark_media == dark_attr                      # the fallbacks follow data-theme the same way as the device setting
     for k in colour:
         m = re.fullmatch(r"light-dark\((.+),\s*([^,]+?)\)", pairs[k].strip()) if "rgb(" not in pairs[k] else None
@@ -237,7 +237,8 @@ def test_text_colour_pairs_meet_4_5_to_1_in_light_and_dark():
                        ("--link", "--surface"), ("--on-navy", "--navy"), ("--navy-text", "--navy"), ("--navy-link", "--navy"),
                        ("--on-accent", "--accent"), ("--chip-fg", "--chip-bg"), ("--warn", "--surface"), ("--strong-fg", "--strong-bg"),
                        ("--good-fg", "--good-bg"), ("--possible-fg", "--possible-bg"), ("--rule-fg", "--rule-bg"), ("--rule-fg", "--surface"),
-                       ("--muted", "--drop-bg"), ("--accent", "--navy")):
+                       ("--muted", "--drop-bg"), ("--accent", "--navy"), ("--pill-on-fg", "--pill-on-bg"), ("--on-navy", "--navy-chip"),
+                       ("--link", "--drop-bg")):
             assert _ratio(t[fg], t[bg]) >= 4.5, (name, fg, bg, _ratio(t[fg], t[bg]))
 
 
@@ -392,3 +393,28 @@ def test_theme_works_in_the_demo_and_stores_nothing(tmp_path):
     assert c.post("/run", follow_redirects=False).status_code == 405
     log = tmp_path / "log.jsonl"
     assert not log.exists() or "theme" not in log.read_text(encoding="utf-8")
+
+
+def test_buttons_keep_their_own_text_colour_and_the_active_pill_has_tokens():
+    css = (ROOT / "jobfinder" / "static" / "style.css").read_text(encoding="utf-8")
+    assert ".upload-card a:not(.btn) {" in css and ".upload-card a {" not in css
+    _, base, ld, media, attr = _css_blocks()
+    assert "--pill-on-bg: #0F1B2D" in base and "--pill-on-fg: #FFFFFF" in base
+    assert "--pill-on-bg: light-dark(#0F1B2D, #E6ECF2)" in ld and "--pill-on-fg: light-dark(#FFFFFF, #0D1624)" in ld
+    for block in (media, attr):
+        assert "--pill-on-bg: #E6ECF2" in block and "--pill-on-fg: #0D1624" in block
+    assert re.search(r'\.pill\[aria-current="true"\] \{ background: var\(--pill-on-bg\)[^}]*color: var\(--pill-on-fg\)', css)
+
+
+def test_card_blocks_have_no_aria_label_and_keep_their_headings(tmp_path):
+    c, _ = build(tmp_path)
+    html = c.get("/matches").text
+    assert 'aria-label="Why it fits"' not in html and 'aria-label="Gaps"' not in html
+    assert "<h3>Why it fits</h3>" in html and '<h3 class="gaps">Gaps</h3>' in html
+
+
+def test_demo_banner_is_inside_the_header(tmp_path):
+    app = web.create_app(str(tmp_path / "demo.db"), dict(CFG), base_dir=tmp_path, log_path=str(tmp_path / "log.jsonl"), demo=True)
+    html = TestClient(app, base_url="http://127.0.0.1").get("/").text
+    start, end = html.index('<header class="site-header">'), html.index("</header>")
+    assert html.count('class="banner"') == 1 and start < html.index('class="banner"') < end
