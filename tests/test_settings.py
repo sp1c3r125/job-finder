@@ -7,7 +7,7 @@ GOOD = {
     "JOBFINDER_MODE": "hosted", "BACKEND": "api",
     "DATABASE_URL": "postgresql://invented", "SUPABASE_URL": "https://invented.example",
     "SUPABASE_ANON_KEY": "anon-invented", "ANTHROPIC_API_KEY": "key-invented",
-    "SESSION_SECRET": "secret-invented", "ALLOWED_HOSTS_EXTRA": "jobs.example.test",
+    "SESSION_SECRET": "secret-invented", "ALLOWED_HOSTS_EXTRA": "jobs.example.test", "SUPPORT_CONTACT": "help@example.test",
 }
 
 
@@ -83,3 +83,20 @@ def test_load_env_does_not_override_existing(monkeypatch, tmp_path):
     import os
     assert os.environ["A_SET"] == "already" and os.environ["B_NEW"] == "quoted"
     monkeypatch.delenv("B_NEW", raising=False)
+
+
+@pytest.mark.parametrize("source", ["himalayas", "remoteok", "wwr", "research", "somewhere-new"])
+def test_hosted_refuses_any_source_outside_the_allowlist(source):
+    problems = settings.hosted_problems(GOOD, {"hosted_sources": ["greenhouse", source]})
+    assert any(source in p and "may not fetch" in p for p in problems)
+    with pytest.raises(SystemExit, match=source):
+        settings.check_startup(GOOD, {"hosted_sources": [source]})
+
+
+def test_hosted_allows_exactly_the_three_ats_sources():
+    assert settings.HOSTED_SOURCES_ALLOWED == ("greenhouse", "lever", "ashby")
+    assert settings.hosted_problems(GOOD, {"hosted_sources": ["greenhouse", "lever", "ashby"]}) == []
+
+
+def test_local_mode_is_not_limited_by_the_allowlist():
+    assert settings.check_startup({}, {"hosted_sources": ["himalayas"], "aggregators": ["himalayas", "remoteok", "wwr"]}) == "local"

@@ -183,6 +183,8 @@ def test_the_worker_fetches_only_the_hosted_sources():
     companies = [{"source": "greenhouse", "board": "x"}, {"source": "lever", "board": "y"}, {"source": "himalayas", "board": "z"}]
     assert [c["source"] for c in worker.hosted_companies({"hosted_sources": ["greenhouse", "lever", "ashby"]}, companies)] == ["greenhouse", "lever"]
     assert worker.hosted_companies({}, companies) == []                 # no allowlist, no fetching
+    # config can only narrow the list: naming an aggregator there does not make the worker fetch it
+    assert [c["source"] for c in worker.hosted_companies({"hosted_sources": ["greenhouse", "himalayas"]}, companies)] == ["greenhouse"]
 
 
 def test_hosted_worker_refuses_the_claude_code_backend(monkeypatch, tmp_path):
@@ -191,7 +193,7 @@ def test_hosted_worker_refuses_the_claude_code_backend(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     for k, v in {"JOBFINDER_MODE": "hosted", "BACKEND": "claude-code", "DATABASE_URL": "x", "SUPABASE_URL": "x",
                  "SUPABASE_ANON_KEY": "x", "ANTHROPIC_API_KEY": "x", "SESSION_SECRET": "x", "ALLOWED_HOSTS_EXTRA": "x",
-                 "WORKER_DATABASE_URL": "x"}.items():
+                 "WORKER_DATABASE_URL": "x", "SUPPORT_CONTACT": "x"}.items():
         monkeypatch.setenv(k, v)
     with pytest.raises(SystemExit, match="BACKEND must be 'api'"):
         worker.main([])

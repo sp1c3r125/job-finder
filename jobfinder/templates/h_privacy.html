@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}privacy{% endblock %}
+{% block main %}
+<h1>Privacy</h1>
+<p>Version {{ consent_version }}. This is an invite-only beta. We keep as little as we can and you can delete everything yourself.</p>
+
+<h2>What we keep</h2>
+<ul>
+  <li>Your email address, to sign you in.</li>
+  <li>The facts we read from your resume, including its text, so we can match jobs and write what you ask for. The file you upload is not kept.</li>
+  <li>Your job matches and scores, and the cover notes and tailored resume text you ask for.</li>
+  <li>A record of your model calls: the day, the model and the number of tokens. This is how we keep daily limits and track cost.</li>
+  <li>When you last signed in.</li>
+  <li>Our logs record events with a scrambled user code. They never hold your resume or job text.</li>
+</ul>
+
+<h2>Who else handles it</h2>
+<ul>
+  <li><strong>Anthropic</strong> (the AI model provider) reads your resume facts and job posts to score matches and write drafts.</li>
+  <li><strong>Supabase</strong> stores the database and runs the sign-in.</li>
+  <li><strong>The hosting provider</strong> runs this service.</li>
+</ul>
+<p>We do not sell your data, use it for advertising, or send anything to an employer. We never apply for you.</p>
+
+<h2>How long we keep it</h2>
+<dl>
+  <dt>Job posts nobody has a saved score for</dt><dd>{{ retention.unscored_jobs_days }} days</dd>
+  <dt>Model call records</dt><dd>{{ retention.usage_days }} days</dd>
+  <dt>An account that has not signed in</dt><dd>{{ retention.inactive_account_days }} days. We mark it {{ retention.inactive_warning_days }} days before deletion; signing in at any time cancels that.</dd>
+  <dt>Everything else</dt><dd>Until you delete your account.</dd>
+</dl>
+<p>Copies held in our provider's database backups may remain for a limited time after you delete your data.</p>
+
+<h2>Your choices</h2>
+<ul>
+  <li>Delete your account and all your data at once from the <a href="/account">Account page</a>. Your sign-in account is removed within 24 hours.</li>
+  <li>To ask what we hold about you, or to correct it, or about anything on this page, contact: {{ support or "the person who invited you" }}.</li>
+</ul>
+{% endblock %}

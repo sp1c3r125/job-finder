@@ -2,9 +2,9 @@
 {% block title %}before you start{% endblock %}
 {% block main %}
 <h1>Before you start</h1>
-<p>Please read this. You can delete your account and everything we hold about you at any time from the Account page.</p>
+<p>Please read this and <a href="/privacy">the full privacy page</a>. You can delete your account and everything we hold about you at any time from the Account page.</p>
 <ul>
-  <li><strong>What we keep:</strong> your email address, the facts we read from your resume (including its text), your job matches and scores, the cover notes you ask for, and a count of your daily model calls.</li>
+  <li><strong>What we keep:</strong> your email address, the facts we read from your resume (including its text), your job matches and scores, the cover notes you ask for, and a count of your daily model calls (with the model and tokens used). We delete unused job posts after {{ retention.unscored_jobs_days }} days, usage counts after {{ retention.usage_days }} days, and an account that has not signed in for {{ retention.inactive_account_days }} days.</li>
   <li><strong>Who else sees your resume text:</strong> the AI model provider (Anthropic) reads it to find your matches and to write the drafts you ask for. Our database and hosting providers store it for us.</li>
   <li><strong>What we never do:</strong> send anything to an employer, apply for you, or add anything to your experience that is not in your resume.</li>
   <li><strong>Other people:</strong> they cannot see your data, and we do not use it for anything except giving you your matches.</li>

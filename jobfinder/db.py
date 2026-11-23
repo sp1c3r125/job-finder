@@ -380,7 +380,7 @@ def model_scored(con):
 APP_ROLE = "jobfinder_app"
 WORKER_ROLE = "jobfinder_worker"
 PER_USER_TABLES = ("user_jobs", "job_scores", "usage", "settings",
-                   "consents", "resume_facts", "deletion_requests", "runs")     # every table that holds one user's rows
+                   "consents", "resume_facts", "deletion_requests", "runs", "account_activity")     # every table that holds one user's rows
 _V2_TABLES = ("consents", "resume_facts", "deletion_requests")          # added in Postgres migration 2
 _OWN_ROW = "user_id = nullif(current_setting('app.user_id', true), '')::uuid"
 
@@ -448,7 +448,36 @@ _PG_V3 = [
     "REVOKE ALL ON FUNCTION active_users() FROM PUBLIC",
     f"GRANT EXECUTE ON FUNCTION active_users() TO {WORKER_ROLE}",
 ]
-PG_MIGRATIONS = [(1, _PG_V1), (2, _PG_V2), (3, _PG_V3)]
+_PG_V4 = [
+    # Retention (M4 P5). account_activity is when a person last signed in; warned_at is when the warning period began.
+    "CREATE TABLE account_activity (user_id UUID PRIMARY KEY, last_seen TEXT NOT NULL, warned_at TEXT)",
+] + list(_rls("account_activity")) + [
+    "INSERT INTO account_activity (user_id, last_seen) SELECT user_id, min(accepted_at) FROM consents GROUP BY user_id "
+    "ON CONFLICT DO NOTHING",
+    # The worker deletes across users, so each step is one narrow function. Nobody else may call them.
+    """CREATE FUNCTION purge_stale_jobs(cutoff TEXT) RETURNS BIGINT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+       AS $$ DECLARE n BIGINT; BEGIN
+         CREATE TEMP TABLE stale ON COMMIT DROP AS
+           SELECT j.source, j.source_id FROM jobs j WHERE j.first_seen < cutoff AND NOT EXISTS (
+             SELECT 1 FROM job_scores s WHERE s.source = j.source AND s.source_id = j.source_id AND s.score_json IS NOT NULL);
+         DELETE FROM user_jobs u USING stale t WHERE u.source = t.source AND u.source_id = t.source_id;
+         DELETE FROM job_scores u USING stale t WHERE u.source = t.source AND u.source_id = t.source_id;
+         DELETE FROM jobs j USING stale t WHERE j.source = t.source AND j.source_id = t.source_id;
+         GET DIAGNOSTICS n = ROW_COUNT; RETURN n; END $$""",
+    """CREATE FUNCTION purge_old_usage(cutoff_day TEXT) RETURNS BIGINT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+       AS $$ DECLARE n BIGINT; BEGIN DELETE FROM usage WHERE day < cutoff_day; GET DIAGNOSTICS n = ROW_COUNT; RETURN n; END $$""",
+    """CREATE FUNCTION warn_inactive(last_before TEXT, now_iso TEXT) RETURNS BIGINT LANGUAGE plpgsql SECURITY DEFINER
+       SET search_path = public AS $$ DECLARE n BIGINT; BEGIN
+         UPDATE account_activity a SET warned_at = now_iso WHERE a.last_seen < last_before AND a.warned_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM deletion_requests d WHERE d.user_id = a.user_id);
+         GET DIAGNOSTICS n = ROW_COUNT; RETURN n; END $$""",
+    """CREATE FUNCTION inactive_users(last_before TEXT, warned_before TEXT) RETURNS SETOF UUID LANGUAGE sql SECURITY DEFINER
+       SET search_path = public AS $$ SELECT a.user_id FROM account_activity a WHERE a.last_seen < last_before
+         AND a.warned_at IS NOT NULL AND a.warned_at < warned_before
+         AND NOT EXISTS (SELECT 1 FROM deletion_requests d WHERE d.user_id = a.user_id) ORDER BY 1 $$""",
+] + [stmt for sig in ("purge_stale_jobs(TEXT)", "purge_old_usage(TEXT)", "warn_inactive(TEXT, TEXT)", "inactive_users(TEXT, TEXT)")
+     for stmt in (f"REVOKE ALL ON FUNCTION {sig} FROM PUBLIC", f"GRANT EXECUTE ON FUNCTION {sig} TO {WORKER_ROLE}")]
+PG_MIGRATIONS = [(1, _PG_V1), (2, _PG_V2), (3, _PG_V3), (4, _PG_V4)]
 
 
 def migrate_pg(admin_url):
@@ -519,7 +548,7 @@ def _dialect(con):
 
 # ---- Hosted accounts (Postgres only) -------------------------------------------------------------------------------------
 NO_USER = "00000000-0000-0000-0000-000000000000"       # a connection with no user: it sees no per-user rows
-CONSENT_VERSION = "2026-11-1"                           # bump when the privacy page or consent text changes
+CONSENT_VERSION = "2026-11-2"                           # bump when the privacy page or consent text changes
 
 
 def is_invited(url, email):
@@ -640,3 +669,35 @@ def try_advisory_lock(url, key):
         return con
     con.close()
     return None
+
+
+# ---- Activity and retention (Postgres only) ------------------------------------------------------------------------------
+def touch_activity(con):
+    """This person is here now: remember it and cancel any inactivity warning."""
+    con.execute("INSERT INTO account_activity (user_id,last_seen) VALUES (?,?) "
+                "ON CONFLICT (user_id) DO UPDATE SET last_seen = excluded.last_seen, warned_at = NULL",
+                (_uid(con), datetime.now(timezone.utc).isoformat()))
+    con.commit()
+
+
+def purge_stale_jobs(con, cutoff_iso):
+    """Worker: delete catalogue jobs first stored before cutoff that no user has a saved score for (and the per-user rows on them)."""
+    n = con.execute("SELECT purge_stale_jobs(?)", (cutoff_iso,)).fetchone()[0]
+    con.commit()
+    return int(n)
+
+
+def purge_old_usage(con, cutoff_day):
+    n = con.execute("SELECT purge_old_usage(?)", (cutoff_day,)).fetchone()[0]
+    con.commit()
+    return int(n)
+
+
+def warn_inactive(con, last_before_iso, now_iso):
+    n = con.execute("SELECT warn_inactive(?,?)", (last_before_iso, now_iso)).fetchone()[0]
+    con.commit()
+    return int(n)
+
+
+def inactive_users(con, last_before_iso, warned_before_iso):
+    return [str(r[0]) for r in con.execute("SELECT inactive_users(?,?)", (last_before_iso, warned_before_iso)).fetchall()]

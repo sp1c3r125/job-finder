@@ -48,7 +48,7 @@ class WorkerLock:
 
 def hosted_companies(cfg, companies):
     """Only companies on a source the hosted allowlist names. Aggregators are never fetched in hosted mode."""
-    allow = set(cfg.get("hosted_sources") or [])
+    allow = set(cfg.get("hosted_sources") or []) & set(settings.HOSTED_SOURCES_ALLOWED)   # config can only narrow the list
     return [c for c in companies if c["source"] in allow]
 
 
@@ -71,6 +71,32 @@ def update_catalogue(url, cfg, companies, http, log, now):
         con.close()
     log("catalogue_updated", None, fetched=len(jobs), new=new)
     return new
+
+
+def run_retention(url, cfg, log, now):
+    """Delete what is past its retention period, and nothing else. Periods come from config.yaml `retention:`.
+    Inactive accounts are warned first (warned_at), then deleted no sooner than the warning period later; their sign-in
+    account is removed by sweep_deletions. Returns counts."""
+    r = {**settings.RETENTION_DEFAULTS, **(cfg.get("retention") or {})}
+    iso = lambda days: (now - timedelta(days=int(days))).isoformat()
+    out = {}
+    con = db.connect_pg(url, db.NO_USER)
+    try:
+        out["jobs"] = db.purge_stale_jobs(con, iso(r["unscored_jobs_days"]))
+        out["usage"] = db.purge_old_usage(con, (now - timedelta(days=int(r["usage_days"]))).date().isoformat())
+        out["warned"] = db.warn_inactive(con, iso(int(r["inactive_account_days"]) - int(r["inactive_warning_days"])), now.isoformat())
+        doomed = db.inactive_users(con, iso(r["inactive_account_days"]), iso(r["inactive_warning_days"]))
+    finally:
+        con.close()
+    for uid in doomed:
+        user = db.connect_pg(url, uid)
+        try:
+            db.delete_account_data(user)                 # the same deletion as the Account page
+        finally:
+            user.close()
+    out["accounts"] = len(doomed)
+    log("retention", None, **out)
+    return out
 
 
 def run_user(url, user_id, cfg, backend, log, now, user_cap, global_cap):
@@ -183,6 +209,8 @@ def main(argv=None):
     def make_log(user_id):
         return make_hosted_log(user_id, stdout_sink)
     try:
+        if not args.queue:
+            run_retention(worker_url, cfg, make_log(None), datetime.now(timezone.utc))
         if not args.queue and os.environ.get("SUPABASE_SERVICE_KEY", "").strip():
             from .auth import SupabaseAuth
             sweep_deletions(worker_url, SupabaseAuth(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"]),
