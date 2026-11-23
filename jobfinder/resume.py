@@ -130,6 +130,18 @@ def verify(raw, text):
 
 def import_resume(backend, path, log, out=RESUME_JSON):
     """Read, extract (one try plus one retry, never repaired), verify, save. Returns (facts, dropped) or None."""
+    got = extract_facts(backend, path, log)
+    if got is None:
+        return None
+    facts, dropped = got
+    Path(out).write_text(json.dumps(facts, ensure_ascii=False, indent=2), encoding="utf-8")
+    log("resume_imported", None, file=Path(path).name, roles=len(facts["roles"]), skills=len(facts["skills"]),
+        search_keywords=facts["search_keywords"], target=facts.get("target"), dropped=dropped)
+    return facts, dropped
+
+
+def extract_facts(backend, path, log):
+    """The reading and checking half of import_resume. Saves nothing. Hosted mode stores the result in the database."""
     text = read_resume(path)
     user = f"RESUME:\n{text[:20000]}"
     for attempt in (1, 2):
@@ -144,9 +156,6 @@ def import_resume(backend, path, log, out=RESUME_JSON):
     facts, dropped = verify(raw, text)
     facts.update(source_file=Path(path).name, text=text, left_out=dropped,
                  imported_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
-    Path(out).write_text(json.dumps(facts, ensure_ascii=False, indent=2), encoding="utf-8")
-    log("resume_imported", None, file=Path(path).name, roles=len(facts["roles"]), skills=len(facts["skills"]),
-        search_keywords=facts["search_keywords"], target=facts.get("target"), dropped=dropped)
     return facts, dropped
 
 

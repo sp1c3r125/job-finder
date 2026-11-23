@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}sign in{% endblock %}
+{% block nav %}{% endblock %}
+{% block main %}
+<h1>Sign in</h1>
+{% if sent %}
+<p role="status">If that address is on the invite list, a sign-in link is on its way. The link works once. Check your spam folder too.</p>
+{% endif %}
+<p>This is an invite-only beta. Enter the email address you were invited with and we will email you a link. There is no password.</p>
+<form class="upload-form" action="/login" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <label for="email">Email address</label>
+  <span class="hint" id="email-hint">The address you were invited with.</span>
+  <input type="email" id="email" name="email" required autocomplete="email" inputmode="email" maxlength="254" aria-describedby="email-hint">
+  <button class="btn-main btn-big" type="submit">Email me a sign-in link</button>
+</form>
+{% endblock %}

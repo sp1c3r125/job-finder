@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}account{% endblock %}
+{% block main %}
+<h1>Account</h1>
+<dl>
+  <dt>Signed in as</dt><dd>{{ account }}</dd>
+  <dt>Resume</dt><dd>{{ "stored" if has_resume else "none" }}</dd>
+</dl>
+<form class="inline" action="/logout" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <button class="btn-second" type="submit">Sign out</button>
+</form>
+<h2 id="del-h">Delete my account</h2>
+<p>This removes your resume facts, matches, scores, cover notes, consent record and usage count at once. It cannot be undone.
+  Your sign-in account is removed within 24 hours.</p>
+{% if wrong %}<p role="alert"><strong>The words did not match.</strong> Nothing was deleted.</p>{% endif %}
+<form class="upload-form" action="/account/delete" method="post" aria-labelledby="del-h">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <label for="confirm">Type <q>delete my account</q> to confirm</label>
+  <input type="text" id="confirm" name="confirm" required autocomplete="off" autocapitalize="none" spellcheck="false">
+  <button class="btn-main btn-big" type="submit">Delete my account and data</button>
+</form>
+{% endblock %}

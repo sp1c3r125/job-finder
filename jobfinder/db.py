@@ -342,8 +342,17 @@ def model_scored(con):
 # set_config('app.user_id', <id>, true). Never the Supabase service role for a user request.
 APP_ROLE = "jobfinder_app"
 WORKER_ROLE = "jobfinder_worker"
-PER_USER_TABLES = ("user_jobs", "job_scores", "usage", "settings")     # every table that holds one user's rows
+PER_USER_TABLES = ("user_jobs", "job_scores", "usage", "settings",
+                   "consents", "resume_facts", "deletion_requests")     # every table that holds one user's rows
+_V2_TABLES = ("consents", "resume_facts", "deletion_requests")          # added in Postgres migration 2
 _OWN_ROW = "user_id = nullif(current_setting('app.user_id', true), '')::uuid"
+
+def _rls(t):
+    return (f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY",
+            f"ALTER TABLE {t} FORCE ROW LEVEL SECURITY",
+            f"CREATE POLICY own_rows ON {t} FOR ALL TO {APP_ROLE}, {WORKER_ROLE} USING ({_OWN_ROW}) WITH CHECK ({_OWN_ROW})",
+            f"GRANT SELECT, INSERT, UPDATE, DELETE ON {t} TO {APP_ROLE}, {WORKER_ROLE}")
+
 
 _PG_V1 = [
     f"""DO $$ BEGIN
@@ -365,12 +374,22 @@ _PG_V1 = [
     f"GRANT USAGE ON SCHEMA public TO {APP_ROLE}, {WORKER_ROLE}",
     f"GRANT SELECT ON jobs TO {APP_ROLE}",                                   # a user request cannot change the catalogue
     f"GRANT SELECT, INSERT, UPDATE, DELETE ON jobs TO {WORKER_ROLE}",
-] + [stmt for t in PER_USER_TABLES for stmt in (
-    f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY",
-    f"ALTER TABLE {t} FORCE ROW LEVEL SECURITY",
-    f"CREATE POLICY own_rows ON {t} FOR ALL TO {APP_ROLE}, {WORKER_ROLE} USING ({_OWN_ROW}) WITH CHECK ({_OWN_ROW})",
-    f"GRANT SELECT, INSERT, UPDATE, DELETE ON {t} TO {APP_ROLE}, {WORKER_ROLE}")]
-PG_MIGRATIONS = [(1, _PG_V1)]
+] + [stmt for t in ("user_jobs", "job_scores", "usage", "settings") for stmt in _rls(t)]
+_PG_V2 = [
+    # Sign-in and privacy (M4 P3). `invites` is not per-user and the app role cannot read it: it can only ask is_invited().
+    "CREATE TABLE invites (email TEXT PRIMARY KEY, invited_at TEXT)",
+    """CREATE FUNCTION is_invited(addr TEXT) RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER SET search_path = public
+       AS $$ SELECT EXISTS (SELECT 1 FROM invites WHERE email = lower(addr)) $$""",
+    "REVOKE ALL ON FUNCTION is_invited(TEXT) FROM PUBLIC",
+    f"GRANT EXECUTE ON FUNCTION is_invited(TEXT) TO {APP_ROLE}, {WORKER_ROLE}",
+    "CREATE TABLE consents (user_id UUID NOT NULL, version TEXT NOT NULL, accepted_at TEXT, PRIMARY KEY (user_id, version))",
+    "CREATE TABLE resume_facts (user_id UUID PRIMARY KEY, facts_json TEXT NOT NULL, updated_at TEXT)",
+    "CREATE TABLE deletion_requests (user_id UUID PRIMARY KEY, requested_at TEXT)",
+    "ALTER TABLE job_scores ADD COLUMN draft_text TEXT",
+] + [stmt for t in _V2_TABLES for stmt in _rls(t)] + [
+    # the worker removes the sign-in account of every user who asked to be deleted, so it may see all of these rows
+    f"CREATE POLICY worker_sweep ON deletion_requests FOR ALL TO {WORKER_ROLE} USING (true) WITH CHECK (true)"]
+PG_MIGRATIONS = [(1, _PG_V1), (2, _PG_V2)]
 
 
 def migrate_pg(admin_url):
@@ -437,3 +456,74 @@ def connect_pg(url, user_id):
 
 def _dialect(con):
     return getattr(con, "dialect", "sqlite")
+
+
+# ---- Hosted accounts (Postgres only) -------------------------------------------------------------------------------------
+NO_USER = "00000000-0000-0000-0000-000000000000"       # a connection with no user: it sees no per-user rows
+CONSENT_VERSION = "2026-11-1"                           # bump when the privacy page or consent text changes
+
+
+def is_invited(url, email):
+    """Is this email on the invite list? Asked before anyone is signed in, so the connection has no user."""
+    con = connect_pg(url, NO_USER)
+    try:
+        return bool(con.execute("SELECT is_invited(?)", (email.strip(),)).fetchone()[0])
+    finally:
+        con.close()
+
+
+def has_consent(con, version=CONSENT_VERSION):
+    return con.execute("SELECT 1 FROM consents WHERE user_id=? AND version=?", (_uid(con), version)).fetchone() is not None
+
+
+def add_consent(con, version=CONSENT_VERSION):
+    con.execute("INSERT INTO consents (user_id,version,accepted_at) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                (_uid(con), version, datetime.now(timezone.utc).isoformat()))
+    con.commit()
+
+
+def get_resume_facts(con):
+    row = con.execute("SELECT facts_json FROM resume_facts WHERE user_id=?", (_uid(con),)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def set_resume_facts(con, facts):
+    con.execute("INSERT INTO resume_facts (user_id,facts_json,updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET facts_json=excluded.facts_json, updated_at=excluded.updated_at",
+                (_uid(con), json.dumps(facts, ensure_ascii=False), datetime.now(timezone.utc).isoformat()))
+    con.commit()
+
+
+def set_draft_text(con, job, text):
+    """Hosted cover note: the text is kept in the database, not in a file."""
+    con.execute("INSERT INTO job_scores (user_id,source,source_id,draft_text) VALUES (?,?,?,?) "
+                "ON CONFLICT(user_id,source,source_id) DO UPDATE SET draft_text=excluded.draft_text",
+                (_uid(con), job.source, job.source_id, text))
+    con.commit()
+
+
+def get_draft_text(con, source, source_id):
+    row = con.execute("SELECT draft_text FROM job_scores WHERE user_id=? AND source=? AND source_id=?",
+                      (_uid(con), source, source_id)).fetchone()
+    return row[0] if row else None
+
+
+def delete_account_data(con):
+    """Delete every row this user owns, in every per-user table, and queue removal of the sign-in account.
+    One transaction. The deletion_requests row stays: it is what lets the worker finish the job."""
+    for t in PER_USER_TABLES:
+        if t != "deletion_requests":
+            con.execute(f"DELETE FROM {t} WHERE user_id=?", (_uid(con),))
+    con.execute("INSERT INTO deletion_requests (user_id,requested_at) VALUES (?,?) ON CONFLICT DO NOTHING",
+                (_uid(con), datetime.now(timezone.utc).isoformat()))
+    con.commit()
+
+
+def pending_deletions(con):
+    """Worker only: user ids whose sign-in account still has to be removed."""
+    return [str(r[0]) for r in con.execute("SELECT user_id FROM deletion_requests ORDER BY requested_at").fetchall()]
+
+
+def finish_deletion(con, user_id):
+    con.execute("DELETE FROM deletion_requests WHERE user_id=?", (user_id,))
+    con.commit()

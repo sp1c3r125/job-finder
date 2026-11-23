@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_card.html" import card with context %}
+{% block title %}your matches{% endblock %}
+{% block main %}
+<h1>My matches</h1>
+<section aria-labelledby="resume-h">
+  <h2 id="resume-h">Your resume</h2>
+  {% if has_resume %}
+  <p>Read: {{ resume_name or "name not found" }} · {{ roles }} role{{ "" if roles == 1 else "s" }} · {{ skills }} skill{{ "" if skills == 1 else "s" }}.</p>
+  {% else %}<p>Upload your resume so we can find matches for you.</p>{% endif %}
+  <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label for="resume-file">{{ "Upload a new resume" if has_resume else "Choose your resume" }}</label>
+    <span class="hint" id="resume-hint">PDF, DOCX, TXT or MD, up to 5 MB. The file is deleted as soon as it has been read.</span>
+    <input type="file" id="resume-file" name="file" accept=".pdf,.docx,.txt,.md" required aria-describedby="resume-hint">
+    <button class="btn-main btn-big" type="submit">Upload and read my resume</button>
+  </form>
+</section>
+<section aria-labelledby="jobs-h">
+  <h2 id="jobs-h">Jobs</h2>
+  {% if rows %}<ul class="job-list">{% for r in rows %}<li>{{ card(r, "job-" ~ loop.index) }}</li>{% endfor %}</ul>
+  {% else %}<p>No matches yet. New jobs are checked every day.</p>{% endif %}
+</section>
+{% endblock %}

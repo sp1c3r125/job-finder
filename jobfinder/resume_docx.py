@@ -54,7 +54,15 @@ def write_docx(t, path):
     if t["languages"]:
         d.add_heading("Languages", level=1)
         d.add_paragraph(", ".join(t["languages"]))
-    d.save(str(path))
+    d.save(path if hasattr(path, "write") else str(path))      # a path, or a file-like object (hosted mode streams bytes)
+
+
+def docx_bytes(t):
+    """The .docx as bytes, built in memory. Hosted mode never writes a resume to disk."""
+    import io
+    buf = io.BytesIO()
+    write_docx(t, buf)
+    return buf.getvalue()
 
 
 def write_tailored(t, info, job, out_dir="resumes"):

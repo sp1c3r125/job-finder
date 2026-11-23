@@ -59,8 +59,8 @@ def test_app_role_cannot_read_the_migration_table(pg):
 
 
 def test_migration_is_idempotent(pg):
-    assert db.migrate_pg(pg.admin) == 1
-    assert db.migrate_pg(pg.admin) == 1
+    assert db.migrate_pg(pg.admin) == 2
+    assert db.migrate_pg(pg.admin) == 2
 
 
 def test_connect_pg_refuses_a_non_uuid_user(pg):
@@ -72,11 +72,13 @@ def test_columns_match_sqlite(pg, tmp_path):
     import psycopg
     lite = db.connect(str(tmp_path / "t.db"))
     legacy = {"passed", "rule", "rule_score", "rule_json"}      # old jobs columns, kept unused in SQLite only
+    hosted_only = {"draft_text"}                                # hosted cover notes live in the database, not in a file
     with psycopg.connect(pg.admin) as con:
         for t in ("jobs", "user_jobs", "job_scores", "usage", "settings"):
             want = {r[1] for r in lite.execute(f"PRAGMA table_info({t})")} - (legacy if t == "jobs" else set())
             got = {r[0] for r in con.execute(
                 "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s", (t,))}
+            got -= hosted_only if t == "job_scores" else set()
             assert got == want, t
 
 
