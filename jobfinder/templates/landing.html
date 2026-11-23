@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}upload your resume{% endblock %}
+{% block nav %}<a href="#how">How it works</a>
+        <a href="#rules">Our rules</a>
+        <a href="/about">About the data</a>{% endblock %}
+{% block content %}
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <div class="hero-text">
+      <p class="eyebrow">Remote AI and automation jobs · open to the Philippines</p>
+      <h1 id="hero-title">Skip the search box. Upload your resume.</h1>
+      <p class="lead">We read your resume, work out the roles you fit, and check remote job posts every day. You get your matches, why each one fits, what is missing, and a resume tailored to each job.</p>
+      <ul class="chips">
+        <li>Never applies for you</li>
+        <li>Only facts from your resume</li>
+        <li>Links go to the original post</li>
+      </ul>
+    </div>
+    <div class="upload-card">
+      <h2>Start with your resume</h2>
+      {% if demo %}
+      <p>Uploads are turned off in this demo. Open the sample to see what the results look like.</p>
+      <a class="btn btn-main btn-big" href="/matches">Try a sample resume</a>
+      {% else %}
+      <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <label for="resume-file">Choose your resume</label>
+        <span class="hint" id="resume-hint">PDF, DOCX, TXT or MD, up to 5 MB</span>
+        <input type="file" id="resume-file" name="file" accept=".pdf,.docx,.txt,.md" required aria-describedby="resume-hint">
+        <button class="btn-main btn-big" type="submit">Upload and read my resume</button>
+      </form>
+      {% endif %}
+      <p class="privacy">{% if demo %}This demo reads no resume and calls no model.{% else %}Your resume stays on this computer, except the text the AI model reads to find your matches. Nothing is sent to employers. No account needed.{% endif %}</p>
+      {% if browse and not demo %}<p class="privacy">Prefer to browse? <a href="/matches">See today's jobs</a></p>{% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" id="how" aria-labelledby="how-title">
+  <h2 id="how-title">How it works</h2>
+  <p class="intro">Job sites ask you to guess the right job title. Your resume already says what you can do.</p>
+  <ol class="tiles">
+    <li class="tile"><span class="step-no" aria-hidden="true">1</span><h3>We read your resume</h3>
+      <p>We copy out your roles, skills and dates. Anything we cannot find word for word in your resume is left out, and we show you what.</p></li>
+    <li class="tile"><span class="step-no" aria-hidden="true">2</span><h3>We search where jobs are posted</h3>
+      <p>Company job boards and remote job sites, every day. We keep only roles that fit your titles and are open to the Philippines or APAC.</p></li>
+    <li class="tile"><span class="step-no" aria-hidden="true">3</span><h3>You decide where to apply</h3>
+      <p>Each match shows why it fits and what is missing. Tailor your resume in one click, then apply on the original job page yourself.</p></li>
+  </ol>
+</section>
+
+<section class="wrap section rules" id="rules" aria-labelledby="rules-title">
+  <h2 id="rules-title">Our rules</h2>
+  <ul class="tiles">
+    <li class="tile tile-dark"><h3>We never apply for you</h3>
+      <p>Nothing is sent to an employer. You read every draft and apply on the original job page.</p></li>
+    <li class="tile tile-dark"><h3>We never add to your experience</h3>
+      <p>A tailored resume uses only your own lines. It does not add skills, numbers or job titles.</p></li>
+    <li class="tile tile-dark"><h3>We credit every source</h3>
+      <p>Each match links to the original post and names the site it came from. Jobs past their expiry date are left out.</p></li>
+  </ul>
+</section>
+{% endblock %}

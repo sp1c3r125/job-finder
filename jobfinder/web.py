@@ -7,7 +7,8 @@ import os
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from datetime import timedelta
+from urllib.parse import urlencode, urlparse
 
 import yaml
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -24,7 +25,7 @@ from . import resume as resume_mod
 from . import target as target_mod
 from .drafts import draft_note, write_draft
 from .guard import CappedBackend, default_cap, killed
-from .localtime import load_zone, time_html
+from .localtime import load_zone, time_html, to_local
 from .log import make_logger
 from .resume_docx import write_tailored
 from .runner import Runner
@@ -42,10 +43,40 @@ SECURITY_HEADERS = {
 DOWNLOAD_DIRS = ("drafts", "resumes")      # only these folders can be downloaded
 MAX_UPLOAD = 5 * 1024 * 1024
 MAGIC = {".pdf": b"%PDF", ".docx": b"PK"}  # cheap wrong-type check for binary formats
-NOTICES = {"started": "Started. Select Refresh status to see progress.",
+NOTICES = {"started": "Started. Select Check progress to see where it is.",
            "busy": "Something is already running. Wait for it to finish.",
            "kill_on": "Kill switch is ON: no model calls will be made.", "kill_off": "Kill switch is off.",
            "no_resume": "Import a resume first.", "no_profile": "Add profile.yaml or import a resume first.", "no_job": "That job is not in the database."}
+
+
+FILTERS = (("all", "All"), ("strong", "Strong fit"), ("good", "Good fit"), ("week", "Posted this week"))
+SORTS = (("best", "Best match"), ("newest", "Newest"))
+STRONG_MIN, GOOD_MIN = 80, 65               # fit score bands: Strong fit 80+, Good fit 65-79, Possible fit below 65
+BUSY_PANEL = ("Search run", "Resume import")  # runs that replace the results with the progress panel
+
+
+def fit_band(r):
+    """(key, label) for the score badge. A rule score is a different scale, so it never gets a fit label."""
+    if r["score_kind"] != "model":
+        return "rule", "Rule score"
+    if r["score"] >= STRONG_MIN:
+        return "strong", "Strong fit"
+    return ("good", "Good fit") if r["score"] >= GOOD_MIN else ("possible", "Possible fit")
+
+
+def card_rows(rs):
+    for r in rs:
+        r["fit"], r["fit_label"] = fit_band(r)
+    return rs
+
+
+def list_href(base, flt, srt):
+    q = {}
+    if flt != "all":
+        q["filter"] = flt
+    if srt != "best":
+        q["sort"] = srt
+    return base + ("?" + urlencode(q) if q else "")
 
 
 def load_config():
@@ -68,11 +99,13 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     log = make_logger(log_path)
     resume_json = base / resume_mod.RESUME_JSON         # the project folder, not the current folder
     runner = Runner()
+    app_runner = runner
     token = secrets.token_urlsafe(32)
     hosts = cfg.get("allowed_hosts") or ["127.0.0.1", "localhost"]
     cap = int(cfg.get("daily_call_cap", default_cap()))
     app = FastAPI(title="Job matches", docs_url=None, redoc_url=None, openapi_url=None)
     # Host allow-list blocks DNS rebinding. Add your tunnel hostname under allowed_hosts in config.yaml.
+    app.state.runner = app_runner                         # tests read and set progress through this
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
 
     @app.middleware("http")
@@ -122,7 +155,8 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     def page(request, name, **ctx):
         con = db.connect(db_path)
         try:
-            ctx.update(csrf=token, status=runner.take_status(), calls=db.calls_today(con), cap=cap,
+            ctx.setdefault("progress_panel", False)
+            ctx.update(site_name=cfg.get("site_name") or "jobfinder", csrf=token, status=runner.take_status(), calls=db.calls_today(con), cap=cap,
                        kill=killed(con, kill_file), demo=demo,
                        has_resume=not demo and resume_mod.load_resume(resume_json) is not None,
                        notice=NOTICES.get(request.query_params.get("notice", "")))
@@ -137,18 +171,78 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
 
     def default_run():
         from . import main
-        rc = main.run(["--db", db_path], backend=capped(), root=base)
+        rc = main.run(["--db", db_path], backend=capped(), root=base, progress=runner.set_progress)
         return "run finished" if rc == 0 else f"run exited with {rc}"
+
+    def all_rows():
+        con = db.connect(db_path)
+        try:
+            return card_rows(report.rows(con, max(cfg.get("max_age_days", 3), cfg.get("research_max_age_days", 7)))),                 db.get_setting(con, "last_run")
+        finally:
+            con.close()
+
+    def side_info():
+        """(resume, target) for the side panel. The demo shows an invented file name and roles."""
+        if demo:
+            return {"file": demo_mod.RESUME_FILE, "read_iso": ""}, {"titles": demo_mod.ROLES}
+        return resume_summary(), target_summary()
+
+    def results(request, base):
+        rs, last = all_rows()
+        flt = request.query_params.get("filter", "all")
+        flt = flt if flt in dict(FILTERS) else "all"
+        srt = request.query_params.get("sort", "best")
+        srt = srt if srt in dict(SORTS) else "best"
+        week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+
+        def this_week(r):
+            d = to_local(r["posted_iso"], zone) if r["posted_iso"] else None
+            return d is not None and d >= week_ago
+
+        tests = {"all": lambda r: True, "strong": lambda r: r["fit"] == "strong", "good": lambda r: r["fit"] == "good",
+                 "week": this_week}
+        counts = {k: sum(1 for r in rs if tests[k](r)) for k, _ in FILTERS}
+        shown = [r for r in rs if tests[flt](r)]
+        if srt == "newest":
+            floor = datetime.min.replace(tzinfo=timezone.utc)
+            shown.sort(key=lambda r: (to_local(r["posted_iso"], zone) if r["posted_iso"] else None) or floor, reverse=True)
+        try:
+            last_run = json.loads(last) if last else None
+        except ValueError:
+            last_run = None
+        resume, tgt = side_info()
+        return page(request, "index.html", rows=shown, total=len(rs), base=base, resume=resume, target=tgt, last_run=last_run, model_jobs=cfg.get("model_daily_jobs", 15),
+                    flt=flt, srt=srt, threshold=cfg.get("score_threshold", 70),
+                    filters=[{"label": lab, "count": counts[k], "current": k == flt, "href": list_href(base, k, srt)} for k, lab in FILTERS],
+                    sorts=[{"label": lab, "current": k == srt, "href": list_href(base, flt, k)} for k, lab in SORTS])
+
+    def matching(request, kind):
+        """The progress panel, shown instead of the results while a search run or a resume import is busy."""
+        prog = dict(runner.progress)
+        stage = prog.get("stage", "")
+        res, tgt = resume_summary(), target_summary()
+        active = 0 if kind == "import" else 2 if stage in ("", "fetch") else 3
+        states = ["done" if i < active else "active" if i == active else "next" for i in range(4)]
+        return page(request, "matching.html", progress_panel=True, kind=kind, prog=prog, states=states, done_count=states.count("done"),
+                    resume=res, target=tgt, model_jobs=cfg.get("model_daily_jobs", 15))
 
     @app.get("/")
     def index(request: Request):
-        con = db.connect(db_path)
-        try:
-            rs = report.rows(con, max(cfg.get("max_age_days", 3), cfg.get("research_max_age_days", 7)))
-        finally:
-            con.close()
-        return page(request, "index.html", rows=rs, resume=None if demo else resume_summary(),
-                    target=None if demo else target_summary(), threshold=cfg.get("score_threshold", 70))
+        state = runner.status()
+        if state["state"] == "running" and state["label"] in BUSY_PANEL:
+            return matching(request, "import" if state["label"] == "Resume import" else "search")
+        if demo or resume_mod.load_resume(resume_json) is None:
+            con = db.connect(db_path)
+            try:
+                browse = bool(db.scored_jobs(con))
+            finally:
+                con.close()
+            return page(request, "landing.html", browse=browse)
+        return results(request, "/")
+
+    @app.get("/matches")
+    def matches(request: Request):
+        return results(request, "/matches")
 
     @app.get("/job/{source}/{source_id:path}")
     def job(request: Request, source: str, source_id: str):
@@ -160,8 +254,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
             con.close()
         if raw is None:
             raise HTTPException(404, "No such job")
-        return page(request, "job.html", r=report.row_from(raw), description=raw["description"] or "",
-                    location=raw["location"] or "")
+        return page(request, "job.html", r=card_rows([report.row_from(raw)])[0], description=raw["description"] or "")
 
     @app.get("/about")
     def about(request: Request):

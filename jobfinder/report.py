@@ -21,7 +21,7 @@ def row_from(r):
     breakers = s["deal_breakers"] if s else rj["deal_breakers"]
     names = [SOURCE_LABELS.get(x, x) for x in [r["source"]] + json.loads(r["also_seen_on"] or "[]")]
     return dict(source=names[0], sources=", ".join(names), source_key=r["source"], source_id=r["source_id"],
-                company=r["company"], title=r["title"], url=r["url"], posted="date not shown" if r.get("undated") else (r["posted"] or "")[:10],
+                company=r["company"], title=r["title"], url=r["url"], location=r.get("location") or "", posted="date not shown" if r.get("undated") else (r["posted"] or "")[:10],
                 posted_iso="" if r.get("undated") else (r["posted"] or ""),
                 rule=r["rule"] or "", score=s["fit_score"] if s else r["rule_score"],
                 score_kind="model" if s else "rule", rule_score=r.get("rule_score"), rule_reasons=rj["reasons"],
