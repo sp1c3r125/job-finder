@@ -75,7 +75,7 @@ def env(pg):
     pg.admin_exec(f"INSERT INTO invites (email, invited_at) VALUES ('{ALICE}', 't'), ('{BOB}', 't')")
     return {"JOBFINDER_MODE": "hosted", "BACKEND": "api", "DATABASE_URL": pg.app, "SUPABASE_URL": SUPA,
             "SUPABASE_ANON_KEY": "anon-invented", "ANTHROPIC_API_KEY": "key-invented", "SESSION_SECRET": SECRET,
-            "ALLOWED_HOSTS_EXTRA": HOST}
+            "ALLOWED_HOSTS_EXTRA": HOST, "SUPPORT_CONTACT": "help@example.test"}
 
 
 @pytest.fixture

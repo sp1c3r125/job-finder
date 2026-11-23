@@ -23,7 +23,7 @@ from markupsafe import Markup
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import auth as auth_mod
-from . import db, report
+from . import db, report, settings
 from . import resume as resume_mod
 from .drafts import draft_note, slug
 from .guard import Refused, UserCappedBackend
@@ -196,6 +196,11 @@ def create_hosted_app(cfg, environ=None, auth=None, backend=None, log_sink=None)
         response = back("/")
         response.set_cookie(SESSION_COOKIE, token, max_age=max(60, int(claims["exp"] - datetime.now(timezone.utc).timestamp())),
                             path="/", httponly=True, secure=True, samesite="lax")
+        con = db.connect_pg(url, claims["sub"])
+        try:
+            db.touch_activity(con)                               # for the inactive-account retention rule
+        finally:
+            con.close()
         make_hosted_log(claims["sub"], sink)("login")
         return response
 
@@ -219,11 +224,18 @@ def create_hosted_app(cfg, environ=None, auth=None, backend=None, log_sink=None)
             response.set_cookie("theme", theme, max_age=31536000, path="/", samesite="lax", httponly=True, secure=True)
         return response
 
+    @app.get("/privacy")
+    def privacy(request: Request):
+        s = session(request)                                       # public: people read it before they sign in
+        r = {**settings.RETENTION_DEFAULTS, **(cfg.get("retention") or {})}
+        return page(request, "h_privacy.html", s, retention=r, support=env.get("SUPPORT_CONTACT", ""),
+                    consent_version=db.CONSENT_VERSION)
+
     # ---- consent and account -------------------------------------------------------------------------------------------
     @app.get("/consent")
     def consent_form(request: Request):
         s = need(request, consent=False)
-        return page(request, "h_consent.html", s)
+        return page(request, "h_consent.html", s, retention={**settings.RETENTION_DEFAULTS, **(cfg.get("retention") or {})})
 
     @app.post("/consent")
     def consent(request: Request, csrf_token: str = Form(""), agree: str = Form("")):
@@ -234,6 +246,7 @@ def create_hosted_app(cfg, environ=None, auth=None, backend=None, log_sink=None)
         con = user_con(s)
         try:
             db.add_consent(con)
+            db.touch_activity(con)
         finally:
             con.close()
         make_hosted_log(s.user_id, sink)("consent", version=1)

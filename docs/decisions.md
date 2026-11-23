@@ -249,3 +249,30 @@ Not built. Each waits for its trigger.
   deleted users are skipped and swept, only hosted sources are fetched, hosted refuses claude-code.
 - Owner steps: create the Anthropic key with a spend limit; set `WORKER_DATABASE_URL`, `SUPABASE_SERVICE_KEY` in the host's secret store (worker only, never the web service);
   schedule the daily pass and a `--queue` pass every few minutes (P6 covers the host).
+
+## M4 P5: source allowlist, privacy page, retention (2026-11-23)
+
+- Source allowlist: `settings.HOSTED_SOURCES_ALLOWED = (greenhouse, lever, ashby)`. Hosted mode will not start if `hosted_sources` names anything else
+  (Himalayas, Remote OK, We Work Remotely, research, or an unknown name), and the worker intersects the config with that constant, so config can only narrow
+  the list. Local mode is unchanged. Adding a source to the constant is the owner's decision, after reading its terms in writing.
+- `/privacy` is public and linked from the hosted footer and the consent page. It lists what is kept, who else handles it (Anthropic, Supabase, the host),
+  retention, and the user's choices. The retention figures are read from config, so the page cannot disagree with the job. `CONSENT_VERSION` is now `2026-11-2`.
+  The page does not state a legal basis (see the questions below).
+- New hosted setting `SUPPORT_CONTACT` (required): the address for privacy and deletion requests, shown on the page.
+- Retention, run by the worker's daily pass before the deletion sweep. These periods are PROPOSED; the owner or the lawyer confirms them. They are in
+  `config.yaml` under `retention:` (defaults in `settings.RETENTION_DEFAULTS`):
+  - catalogue jobs stored more than 30 days ago that no user has a saved score for (and the per-user rows on them): deleted;
+  - `usage` rows older than 90 days: deleted;
+  - accounts with no sign-in for 180 days: marked at 150 days (`account_activity.warned_at`), deleted no sooner than 30 days after the mark, through the same
+    `delete_account_data` as the Account page. The worker's sweep then removes the sign-in account. Signing in or accepting consent clears the mark.
+- Postgres migration 4: `account_activity` (per-user, RLS, backfilled from consent times) and four SECURITY DEFINER functions, executable by the worker role only
+  (`purge_stale_jobs`, `purge_old_usage`, `warn_inactive`, `inactive_users`). The app role cannot call them (tested).
+- Known gap: the inactivity warning is recorded but nothing is sent to the person. The brief says never send anything, and an email channel needs the owner's SMTP
+  and the lawyer's view. Until then the warning is only seen if the person signs in, which resets the clock. Decide before LIVE: send a notice, or lengthen the period.
+- Tests: `tests/test_retention.py` (11, Linux job) and three allowlist tests in `test_settings.py`: a stale unscored job goes while a scored one stays; usage
+  cutoff for every user; warn then delete after the grace period, only the inactive user's rows; sign-in cancels the warning; periods from config; the app role is
+  refused; the privacy page content; hosted config naming each disallowed source fails to start.
+- Questions for the lawyer (listed, not decided): the legal basis for processing (consent or another); whether NPC registration or a DPO applies at 20 users;
+  cross-border transfer to Anthropic and Supabase (region); breach notification duty; wording of the consent and privacy text; the retention periods above;
+  how deletion interacts with provider backups (the page only says copies may remain for a limited time).
+- Not built (TRIGGER): billing, M5 digest, M6 site, public demo hosting. P6 (deploy, LIVE gate) is not part of this PR.

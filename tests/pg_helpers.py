@@ -87,6 +87,7 @@ def seed(pg):
         db.set_setting(con, "kill", str(n))
         db.add_consent(con)
         db.request_run(con)
+        db.touch_activity(con)
         db.set_resume_facts(con, {"name": f"Person {n}"})
         con.execute("INSERT INTO deletion_requests (user_id,requested_at) VALUES (?,?)", (user, "t"))
         con.commit()

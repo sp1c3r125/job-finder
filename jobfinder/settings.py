@@ -14,7 +14,15 @@ HOSTED_REQUIRED = {
     "ANTHROPIC_API_KEY": "the project's own model API key",
     "SESSION_SECRET": "secret for signing session and CSRF values",
     "ALLOWED_HOSTS_EXTRA": "public hostname(s) of the service",
+    "SUPPORT_CONTACT": "where people send deletion and privacy requests (shown on the privacy page)",
 }
+
+# The only sources hosted mode may ever fetch. Himalayas, Remote OK and We Work Remotely stay off until their terms are
+# confirmed in writing; adding a name here is a decision for the owner, not a config change.
+HOSTED_SOURCES_ALLOWED = ("greenhouse", "lever", "ashby")
+
+# How long hosted mode keeps things (days). PROPOSED: the owner or the lawyer confirms. config.yaml `retention:` may change them.
+RETENTION_DEFAULTS = {"unscored_jobs_days": 30, "usage_days": 90, "inactive_account_days": 180, "inactive_warning_days": 30}
 
 
 def load_env(path=".env"):
@@ -47,8 +55,16 @@ def hosted_problems(environ=None, cfg=None):
         problems.append(f"BACKEND must be 'api' in hosted mode, got {backend!r}")
     if (environ.get("DEMO") or "") == "1":
         problems.append("DEMO=1 cannot be combined with hosted mode")
-    if not cfg.get("hosted_sources"):
+    sources = cfg.get("hosted_sources")
+    if not sources:
         problems.append("hosted_sources is missing in config.yaml (the sources hosted mode may fetch)")
+    elif not isinstance(sources, (list, tuple)):
+        problems.append("hosted_sources in config.yaml must be a list")
+    else:
+        extra = sorted(str(x) for x in sources if x not in HOSTED_SOURCES_ALLOWED)
+        if extra:
+            problems.append(f"hosted_sources lists {', '.join(extra)}, which hosted mode may not fetch "
+                            f"(allowed: {', '.join(HOSTED_SOURCES_ALLOWED)})")
     return problems
 
 
