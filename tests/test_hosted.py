@@ -384,3 +384,20 @@ def test_logs_hold_a_hash_and_no_personal_text(env, supa, lines):
 
 def test_session_hash_is_not_the_user_id():
     assert auth.user_hash(ALICE_ID) != ALICE_ID and len(auth.user_hash(ALICE_ID)) == 12
+
+
+def test_search_now_queues_one_run_a_day_and_the_web_process_never_calls_the_model(env, supa, lines):
+    backend = FakeBackend([])
+    c = make(env, supa, lines, backend=backend)
+    sign_in(c, supa)
+    r = c.post("/run", data={"csrf_token": csrf(c)})
+    assert r.status_code == 303 and "notice=no_resume" in r.headers["location"]       # no resume yet: nothing queued
+    con = db.connect_pg(env["DATABASE_URL"], ALICE_ID)
+    db.set_resume_facts(con, stored_facts())
+    con.close()
+    first = c.post("/run", data={"csrf_token": csrf(c)})
+    second = c.post("/run", data={"csrf_token": csrf(c)})
+    assert "notice=queued" in first.headers["location"] and "notice=run_used" in second.headers["location"]
+    assert "Queued" in c.get("/matches").text
+    assert c.post("/run", data={"csrf_token": "wrong"}).status_code == 403
+    assert backend.calls == []

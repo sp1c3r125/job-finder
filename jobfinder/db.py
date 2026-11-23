@@ -82,7 +82,13 @@ def _migrate_2(con):
     con.execute("ALTER TABLE settings_v2 RENAME TO settings")
 
 
-MIGRATIONS = [(1, _migrate_1), (2, _migrate_2)]
+def _migrate_3(con):
+    """usage records which model and how many tokens a call used (filled in hosted mode, where the cost is the owner's)."""
+    for col, kind in (("model", "TEXT"), ("tokens_in", "INTEGER"), ("tokens_out", "INTEGER")):
+        con.execute(f"ALTER TABLE usage ADD COLUMN {col} {kind}")
+
+
+MIGRATIONS = [(1, _migrate_1), (2, _migrate_2), (3, _migrate_3)]
 
 
 def schema_version(con):
@@ -137,15 +143,46 @@ def is_seen(con, job):
     return con.execute("SELECT 1 FROM jobs WHERE source=? AND source_id=?", (job.source, job.source_id)).fetchone() is not None
 
 
-def save(con, job, now_iso, passed, rule, key=""):
+def _insert_job(con, job, now_iso, key, ignore=False):
     con.execute(
         "INSERT INTO jobs (source,source_id,company,title,url,posted,location,remote,description,also_seen_on,"
-        "first_seen,norm_key,expires,undated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "first_seen,norm_key,expires,undated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)" + (" ON CONFLICT DO NOTHING" if ignore else ""),
         (job.source, job.source_id, job.company, job.title, job.url, job.posted, job.location,
          None if job.remote is None else int(job.remote), job.description, json.dumps(job.also_seen_on),
          now_iso, key, job.expires, int(job.undated)),
     )
+
+
+def save(con, job, now_iso, passed, rule, key=""):
+    _insert_job(con, job, now_iso, key)
     _set_user_job(con, job, passed, rule)
+    con.commit()
+
+
+def add_to_catalogue(con, job, now_iso, key=""):
+    """Hosted worker: store a job in the shared catalogue only. Each user's pre-filter result is stored separately."""
+    _insert_job(con, job, now_iso, key, ignore=True)
+    con.commit()
+
+
+def catalogue_jobs(con, since_iso):
+    """Every catalogue job posted at or after since_iso, as Jobs. Shared data: the same for every user."""
+    out = []
+    for r in con.execute("SELECT source,source_id,company,title,url,posted,location,remote,description,expires,undated "
+                         "FROM jobs WHERE posted >= ? ORDER BY first_seen", (since_iso,)).fetchall():
+        out.append(Job(*r[:7], None if r[7] is None else bool(r[7]), r[8], expires=r[9] or "", undated=bool(r[10])))
+    return out
+
+
+def user_job_keys(con):
+    """{(source, source_id)} this user's pre-filter has already decided on."""
+    return {(r[0], r[1]) for r in con.execute("SELECT source, source_id FROM user_jobs WHERE user_id=?", (_uid(con),)).fetchall()}
+
+
+def set_user_jobs(con, items):
+    """items: [(job, passed, rule)]. One transaction."""
+    for job, passed, rule in items:
+        _set_user_job(con, job, passed, rule)
     con.commit()
 
 
@@ -300,11 +337,11 @@ def get_job(con, source, source_id):
     return Job(*row[:7], None if row[7] is None else bool(row[7]), row[8])
 
 
-def add_usage(con, kind, note=""):
-    """One row per model call ('call') or refused call ('refused')."""
+def add_usage(con, kind, note="", model=None, tokens_in=None, tokens_out=None):
+    """One row per model call ('call'), refused call ('refused') or token report ('tokens', not counted as a call)."""
     now = datetime.now(timezone.utc)
-    con.execute("INSERT INTO usage (user_id, day, ts, kind, note) VALUES (?,?,?,?,?)",
-                (_uid(con), now.date().isoformat(), now.isoformat(), kind, note))
+    con.execute("INSERT INTO usage (user_id, day, ts, kind, note, model, tokens_in, tokens_out) VALUES (?,?,?,?,?,?,?,?)",
+                (_uid(con), now.date().isoformat(), now.isoformat(), kind, note, model, tokens_in, tokens_out))
     con.commit()
 
 
@@ -343,7 +380,7 @@ def model_scored(con):
 APP_ROLE = "jobfinder_app"
 WORKER_ROLE = "jobfinder_worker"
 PER_USER_TABLES = ("user_jobs", "job_scores", "usage", "settings",
-                   "consents", "resume_facts", "deletion_requests")     # every table that holds one user's rows
+                   "consents", "resume_facts", "deletion_requests", "runs")     # every table that holds one user's rows
 _V2_TABLES = ("consents", "resume_facts", "deletion_requests")          # added in Postgres migration 2
 _OWN_ROW = "user_id = nullif(current_setting('app.user_id', true), '')::uuid"
 
@@ -389,7 +426,29 @@ _PG_V2 = [
 ] + [stmt for t in _V2_TABLES for stmt in _rls(t)] + [
     # the worker removes the sign-in account of every user who asked to be deleted, so it may see all of these rows
     f"CREATE POLICY worker_sweep ON deletion_requests FOR ALL TO {WORKER_ROLE} USING (true) WITH CHECK (true)"]
-PG_MIGRATIONS = [(1, _PG_V1), (2, _PG_V2)]
+_PG_V3 = [
+    # The worker (M4 P4). `runs` is the "run now" queue: one row per user per UTC day, so a second request is refused.
+    "ALTER TABLE usage ADD COLUMN model TEXT, ADD COLUMN tokens_in INTEGER, ADD COLUMN tokens_out INTEGER",
+    "CREATE TABLE runs (user_id UUID NOT NULL, day TEXT NOT NULL, requested_at TEXT, status TEXT NOT NULL DEFAULT 'queued', "
+    "finished_at TEXT, PRIMARY KEY (user_id, day))",
+] + list(_rls("runs")) + [
+    f"CREATE POLICY worker_sweep ON runs FOR SELECT TO {WORKER_ROLE} USING (true)",       # the worker lists who is waiting
+    # Limits that cover everyone. Not per-user, so the owner sets them with SQL: INSERT INTO global_settings VALUES ('kill','1').
+    "CREATE TABLE global_settings (key TEXT PRIMARY KEY, value TEXT)",
+    f"GRANT SELECT ON global_settings TO {APP_ROLE}, {WORKER_ROLE}",
+    # A total across all users, without letting anyone read another user's rows.
+    """CREATE FUNCTION global_calls_today() RETURNS BIGINT LANGUAGE sql SECURITY DEFINER SET search_path = public
+       AS $$ SELECT count(*) FROM usage WHERE kind = 'call' AND day = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD') $$""",
+    "REVOKE ALL ON FUNCTION global_calls_today() FROM PUBLIC",
+    f"GRANT EXECUTE ON FUNCTION global_calls_today() TO {APP_ROLE}, {WORKER_ROLE}",
+    # Who the daily run is for: users who accepted the terms and uploaded a resume, and have not asked to be deleted.
+    """CREATE FUNCTION active_users() RETURNS SETOF UUID LANGUAGE sql SECURITY DEFINER SET search_path = public
+       AS $$ SELECT DISTINCT c.user_id FROM consents c JOIN resume_facts r ON r.user_id = c.user_id
+             WHERE NOT EXISTS (SELECT 1 FROM deletion_requests d WHERE d.user_id = c.user_id) ORDER BY 1 $$""",
+    "REVOKE ALL ON FUNCTION active_users() FROM PUBLIC",
+    f"GRANT EXECUTE ON FUNCTION active_users() TO {WORKER_ROLE}",
+]
+PG_MIGRATIONS = [(1, _PG_V1), (2, _PG_V2), (3, _PG_V3)]
 
 
 def migrate_pg(admin_url):
@@ -527,3 +586,57 @@ def pending_deletions(con):
 def finish_deletion(con, user_id):
     con.execute("DELETE FROM deletion_requests WHERE user_id=?", (user_id,))
     con.commit()
+
+
+# ---- Worker and caps (Postgres only) -------------------------------------------------------------------------------------
+def _today():
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def request_run(con):
+    """A user asks for a search now. True if queued; False if this user already asked today (one a UTC day)."""
+    cur = con.execute("INSERT INTO runs (user_id,day,requested_at,status) VALUES (?,?,?,'queued') ON CONFLICT DO NOTHING",
+                      (_uid(con), _today(), datetime.now(timezone.utc).isoformat()))
+    con.commit()
+    return cur.rowcount == 1
+
+
+def run_status_today(con):
+    """'queued', 'done' or None (no request today)."""
+    row = con.execute("SELECT status FROM runs WHERE user_id=? AND day=?", (_uid(con), _today())).fetchone()
+    return row[0] if row else None
+
+
+def finish_runs(con):
+    con.execute("UPDATE runs SET status='done', finished_at=? WHERE user_id=? AND status='queued'",
+                (datetime.now(timezone.utc).isoformat(), _uid(con)))
+    con.commit()
+
+
+def queued_users(con):
+    """Worker only: users with a waiting "run now"."""
+    return [str(r[0]) for r in con.execute("SELECT user_id FROM runs WHERE status='queued' ORDER BY requested_at").fetchall()]
+
+
+def active_users(con):
+    """Worker only: users the daily run is for."""
+    return [str(r[0]) for r in con.execute("SELECT active_users()").fetchall()]
+
+
+def global_calls_today(con):
+    return int(con.execute("SELECT global_calls_today()").fetchone()[0])
+
+
+def global_killed(con):
+    row = con.execute("SELECT value FROM global_settings WHERE key='kill'").fetchone()
+    return bool(row) and row[0] == "1"
+
+
+def try_advisory_lock(url, key):
+    """A connection holding Postgres advisory lock `key` until it is closed, or None if someone else holds it."""
+    import psycopg
+    con = psycopg.connect(url, autocommit=True)
+    if con.execute("SELECT pg_try_advisory_lock(%s)", (key,)).fetchone()[0]:
+        return con
+    con.close()
+    return None

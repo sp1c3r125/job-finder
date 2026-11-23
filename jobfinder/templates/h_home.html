@@ -18,6 +18,13 @@
 </section>
 <section aria-labelledby="jobs-h">
   <h2 id="jobs-h">Jobs</h2>
+  {% if has_resume %}
+  <form class="inline" action="/run" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <button class="btn-second" type="submit"{% if run_status %} disabled{% endif %}>Search now</button>
+    <span class="hint">{% if run_status == "queued" %}Queued. It runs within a few minutes.{% elif run_status == "done" %}Done for today. The next search is available tomorrow (UTC).{% else %}One a day. Otherwise new jobs are checked every night.{% endif %}</span>
+  </form>
+  {% endif %}
   {% if rows %}<ul class="job-list">{% for r in rows %}<li>{{ card(r, "job-" ~ loop.index) }}</li>{% endfor %}</ul>
   {% else %}<p>No matches yet. New jobs are checked every day.</p>{% endif %}
 </section>

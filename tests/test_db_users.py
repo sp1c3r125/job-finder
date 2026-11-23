@@ -58,7 +58,7 @@ def test_migration_keeps_everything_and_lists_the_same_jobs(tmp_path):
 
     assert sorted(old) == listing(path)                       # the dashboard shows the same jobs
     con = db.connect(path)
-    assert db.schema_version(con) == 2
+    assert db.schema_version(con) == db.MIGRATIONS[-1][0]
     assert con.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 3
     assert con.execute("SELECT source_id, passed, rule_score FROM user_jobs WHERE user_id='local' "
                        "ORDER BY source_id").fetchall() == before
@@ -80,7 +80,7 @@ def test_migration_makes_a_backup_once_and_is_idempotent(tmp_path):
     old.close()
     db.connect(path).close()                                  # second start: nothing to do
     assert os.path.getsize(bak) == size
-    assert db.schema_version(db.connect(path)) == 2
+    assert db.schema_version(db.connect(path)) == db.MIGRATIONS[-1][0]
 
 
 def test_migration_works_on_a_copy_and_leaves_the_original(tmp_path):

@@ -37,4 +37,4 @@ jobs:
           cache: pip
           cache-dependency-path: requirements*.txt
       - run: pip install -r requirements-dev.txt
-      - run: pytest tests/test_isolation.py tests/test_hosted.py -v
+      - run: pytest tests/test_isolation.py tests/test_hosted.py tests/test_worker.py -v
