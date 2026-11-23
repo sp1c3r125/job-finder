@@ -83,3 +83,9 @@ Recorded decisions. Do not reopen without new evidence.
   no model call, no rewording); `rewrite` keeps the model call. Research runs every `research_every_days` (7).
 - Weights (title 40, skills 30, years 15, location 15) and `rule_min` were kept after calibration (`python -m jobfinder calibrate`).
   Only 2 saved jobs scored 70 or more, so tuning further would overfit.
+
+## Research: blocked job boards
+- JobStreet/JobsDB/SEEK: not a source. Terms 7(d) and 9(b) ban bots and scraping. The SEEK API is for posting jobs only. Revisit only with written consent from SEEK. A blocked domain stays blocked until its terms are checked.
+- `BLOCKED_DOMAINS` in `jobfinder/sources/research.py`: jobstreet.com, jobsdb.com, seek.com.au, seek.co.nz, linkedin.com, indeed.com, glassdoor.com, ziprecruiter.com, foundit.in, remote.co,
+  and the two that were already blocked (wellfound.com, workatastartup.com). Each matches the domain and every subdomain, not look-alikes.
+  A blocked result is dropped before the link check, so no request goes to it. The count per run is logged as `research_blocked`.

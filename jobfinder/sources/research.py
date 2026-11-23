@@ -14,7 +14,10 @@ from ..models import Job
 from ..text import clean_text, html_to_text, to_iso
 
 TOOLS = "WebSearch,WebFetch"
-BLOCKED_DOMAINS = ("linkedin.com", "indeed.com", "glassdoor.com", "wellfound.com", "workatastartup.com", "remote.co")
+# Job boards whose terms ban bots, scraping or aggregation. A domain stays here until its terms are checked.
+# Each entry matches the domain and every subdomain, never a look-alike name (notjobstreet.com).
+BLOCKED_DOMAINS = ("jobstreet.com", "jobsdb.com", "seek.com.au", "seek.co.nz", "linkedin.com", "indeed.com",
+                   "glassdoor.com", "ziprecruiter.com", "foundit.in", "remote.co", "wellfound.com", "workatastartup.com")
 MAX_TITLES = 8
 
 _S = {"type": "string"}
@@ -26,8 +29,8 @@ SCHEMA = {"type": "object", "properties": {"results": {"type": "array", "items":
 SYSTEM = """You find real, currently open job postings on the web, using web search and web fetch.
 Find REMOTE postings for the job title given, posted in the last 7 days, that are open to candidates in the
 Philippines, APAC or worldwide. Use the company's own careers page or its applicant-tracking page (Greenhouse,
-Lever, Ashby, Workable and similar). Do not return LinkedIn, Indeed, Glassdoor, Wellfound, Work at a Startup or
-Remote.co links. Open each page you return and confirm it is a live posting for that role.
+Lever, Ashby, Workable and similar). Do not return JobStreet, JobsDB, SEEK, LinkedIn, Indeed, Glassdoor, ZipRecruiter, foundit,
+Wellfound, Work at a Startup or Remote.co links. Open each page you return and confirm it is a live posting for that role.
 company: the employer. title: the posting's exact title. url: the direct link to the posting.
 posted: the posting date as YYYY-MM-DD, or "" if the page shows none. location: the location text as the posting says it.
 Return only postings you saw on a page. Never guess a URL or a date. Return an empty list if you find none."""
@@ -36,7 +39,7 @@ _LOGIN_PATH = re.compile(r"(?i)/(log-?in|sign-?in|signup|sign-up|sso|auth|oauth)
 
 
 def blocked(url):
-    host = (urlparse(url).hostname or "").lower()
+    host = (urlparse(url).hostname or "").lower().rstrip(".")
     return next((d for d in BLOCKED_DOMAINS if host == d or host.endswith("." + d)), None)
 
 
@@ -143,9 +146,9 @@ def search_title(backend, title, log, today=None):
 
 
 def fetch(backend, cfg, log, get=None, stats=None):
-    """All verified research postings for the target titles. stats (a dict) gets 'returned' and 'link_ok' counts."""
+    """All verified research postings for the target titles. stats (a dict) gets 'returned', 'blocked' and 'link_ok' counts."""
     stats = stats if stats is not None else {}
-    stats.update(returned=0, link_ok=0, finished=False)
+    stats.update(returned=0, blocked=0, link_ok=0, finished=False)
     answered = stopped = 0
     titles = ((cfg.get("target") or {}).get("titles") or [])[:MAX_TITLES]
     if not titles:
@@ -169,6 +172,11 @@ def fetch(backend, cfg, log, get=None, stats=None):
             if key in seen:
                 continue
             seen.add(key)
+            d = blocked(key)
+            if d:                                   # dropped before the link check: no request is ever sent
+                stats["blocked"] += 1
+                log("research_dropped", None, query=title, company=r["company"], title=r["title"], url=key, reason=f"blocked domain {d}")
+                continue
             info, why = check_page(r, get)
             if why:
                 log("research_dropped", None, query=title, company=r["company"], title=r["title"], url=key, reason=why)
@@ -177,5 +185,6 @@ def fetch(backend, cfg, log, get=None, stats=None):
             job = to_job(r, info["text"], posted=info["posted"], expires=info["expires"])
             log("research_link_ok", job, query=title)
             jobs.append(job)
+    log("research_blocked", None, count=stats["blocked"])
     stats["finished"] = bool(answered) and not stopped     # a run the cap cut short, or where every call failed, may retry
     return jobs

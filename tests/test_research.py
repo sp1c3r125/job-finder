@@ -73,6 +73,27 @@ def test_blocked_domains_are_never_requested(url):
     assert why.startswith("blocked domain") and get.calls == []
 
 
+@pytest.mark.parametrize("url,is_blocked", [
+    ("https://ph.jobstreet.com/job/123", True), ("https://boards.greenhouse.io/acme/jobs/1", False),
+    ("https://notjobstreet.com/x", False), ("https://jobstreet.com/x", True), ("https://www.seek.com.au/job/1", True),
+    ("https://nz.seek.co.nz/job/1", True), ("https://ph.jobsdb.com/job/1", True), ("https://www.ziprecruiter.com/jobs/1", True),
+    ("https://www.foundit.in/job/1", True), ("https://jobstreet.com.evil.example/x", False), ("https://seek.com/x", False)])
+def test_blocked_matches_domain_and_subdomains_only(url, is_blocked):
+    assert bool(research.blocked(url)) is is_blocked
+
+
+def test_fetch_counts_and_logs_blocked_results_and_sends_no_request_to_them(logs):
+    events, log = logs
+    cfg = dict(CFG, target=dict(TARGET, titles=["A"]))
+    b = FakeBackend([{"results": [posting(url="https://ph.jobstreet.com/job/123"), posting(url="https://www.seek.com.au/job/9"),
+                                  posting()]}])
+    get = FakeGet({GOOD_URL: Resp()})
+    stats = {}
+    jobs = research.fetch(b, cfg, log, get=get, stats=stats)
+    assert [j.url for j in jobs] == [GOOD_URL] and stats["blocked"] == 2 and get.calls == [GOOD_URL]
+    assert [f["count"] for e, f in events if e == "research_blocked"] == [2]
+
+
 def test_lookalike_domain_is_not_blocked():
     assert research.blocked("https://notlinkedin.com/x") is None and research.blocked("https://remote.company.com/x") is None
 
@@ -88,7 +109,7 @@ def test_one_call_per_title_web_tools_only_and_only_checked_urls_kept(logs):
     get = FakeGet({GOOD_URL: Resp(), "https://x.com/404": Resp(status=404)})
     stats = {}
     jobs = research.fetch(b, cfg, log, get=get, stats=stats)
-    assert [j.url for j in jobs] == [GOOD_URL] and stats == {"returned": 4, "link_ok": 1, "finished": True}
+    assert [j.url for j in jobs] == [GOOD_URL] and stats == {"returned": 4, "blocked": 1, "link_ok": 1, "finished": True}
     assert b.tools == [research.TOOLS, research.TOOLS] == ["WebSearch,WebFetch"] * 2 and len(b.calls) == 2
     assert "A" in b.calls[0][1] and "B" in b.calls[1][1]
     assert get.calls == [GOOD_URL, "https://x.com/404"]                 # the blocked link was not requested, the repeat not re-fetched
