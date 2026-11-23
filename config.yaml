@@ -1,3 +1,4 @@
+site_name: "jobfinder"        # shown in the page title, header and footer
 user_agent: "job-finder/0.1 (personal job search, not a crawler)"
 request_delay_seconds: 1.0
 max_age_days: 3
