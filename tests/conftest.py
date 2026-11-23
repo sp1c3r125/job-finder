@@ -60,3 +60,17 @@ GOOD = {"fit_score": 82, "matching_evidence": ["Built n8n workflows"], "gaps": [
 def logs():
     events = []
     return events, lambda event, job=None, **f: events.append((event, f))
+
+
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch):
+    """Tests never reach the network or a model: only loopback connects are allowed."""
+    import socket
+    real = socket.socket.connect
+
+    def guarded(self, address, *a, **k):
+        host = address[0] if isinstance(address, tuple) else ""
+        if host not in ("127.0.0.1", "::1", "localhost"):
+            raise RuntimeError(f"network blocked in tests: {host}")
+        return real(self, address, *a, **k)
+    monkeypatch.setattr(socket.socket, "connect", guarded)

@@ -186,3 +186,21 @@ def test_cover_note_for_a_job_with_only_a_rule_score(env):
     assert c.post("/job/ashby/r1/note", data={"csrf_token": token}).status_code == 303
     wait_idle(c, "cover note drafted")
     assert len(b.calls) == 1
+
+
+def test_failed_task_writes_one_log_line(tmp_path):
+    import json as _json
+    from jobfinder.runner import Runner
+    lines = []
+    r = Runner(log=lambda event, job=None, **f: lines.append((event, f)))
+
+    def boom():
+        raise ValueError("x" * 500)
+    assert r.start("Search run", boom)
+    for _ in range(100):
+        if r.status()["state"] == "failed":
+            break
+        time.sleep(0.02)
+    assert len(lines) == 1 and lines[0][0] == "task_failed"
+    f = lines[0][1]
+    assert f["label"] == "Search run" and f["error_type"] == "ValueError" and len(f["error"]) <= 300

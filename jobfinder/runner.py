@@ -3,7 +3,8 @@ import threading
 
 
 class Runner:
-    def __init__(self):
+    def __init__(self, log=None):
+        self._log = log                     # decisions logger: a failed task leaves one line there
         self._lock = threading.Lock()
         self.state = {"state": "idle", "label": "", "message": ""}
         self.progress = {}                  # stage and counts of the running task, saved after each stage
@@ -25,6 +26,8 @@ class Runner:
                 self.state = {"state": "done", "label": label, "message": str(msg or "")[:300]}
             except BaseException as e:  # noqa: BLE001 - SystemExit from get_backend must not vanish
                 self.state = {"state": "failed", "label": label, "message": f"{type(e).__name__}: {e}"[:300]}
+                if self._log:
+                    self._log("task_failed", None, label=label, error_type=type(e).__name__, error=str(e)[:300])
             finally:
                 self._lock.release()
 

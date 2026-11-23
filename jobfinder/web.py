@@ -98,7 +98,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     base = Path(base_dir or ROOT)
     log = make_logger(log_path)
     resume_json = base / resume_mod.RESUME_JSON         # the project folder, not the current folder
-    runner = Runner()
+    runner = Runner(log=None if demo else log)
     app_runner = runner
     token = secrets.token_urlsafe(32)
     hosts = cfg.get("allowed_hosts") or ["127.0.0.1", "localhost"]
