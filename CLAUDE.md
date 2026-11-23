@@ -10,3 +10,7 @@
 
 ## Data in the repo
 - Tests, samples and docs use invented data only. Never copy text from resume.json, profile.yaml, target.yaml or my real resume.
+
+## Git
+- Before you change a file: `git switch master`, `git pull`, `git switch -c <branch>`. Never commit or push on master; the owner merges.
+- After the owner merges a PR: `git switch master`, `git pull`. Leave master checked out: the scheduled task runs the checked-out branch.
