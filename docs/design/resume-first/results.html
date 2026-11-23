@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>jobfinder: your matches</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F9}
+*{box-sizing:border-box}
+a{color:#1D5C8C}a:hover{color:#123E61}
+</style>
+</helmet>
+<div style="font-family: Inter, system-ui, sans-serif; color: #0F1B2D; background: #F6F7F9; min-height: 100vh">
+
+  <header style="background: #0F1B2D">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px">
+      <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #FFFFFF; min-height: 44px">
+        <svg width="30" height="30" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" fill="#F4A62A"></rect><path d="M8 14.5l4 4 8-9" fill="none" stroke="#0F1B2D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.02em">jobfinder</span>
+      </a>
+      <nav aria-label="Main" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 28px">
+        <a href="#matches" aria-current="page" style="color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 600; padding: 12px 0; border-bottom: 2px solid #F4A62A">My matches</a>
+        <a href="#saved" style="color: #DDE5EE; text-decoration: none; font-size: 15px; font-weight: 500; padding: 12px 0">Saved</a>
+        <a href="#resume" style="color: #DDE5EE; text-decoration: none; font-size: 15px; font-weight: 500; padding: 12px 0">My resume</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="matches" style="max-width: 1200px; margin: 0 auto; padding: 40px 24px 72px; display: flex; flex-direction: column; gap: 24px">
+
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 36px; letter-spacing: -0.02em; font-weight: 700">31 jobs fit your resume</h1>
+        <p style="margin: 0; font-size: 16px; color: #4E5B6D">From 1,240 posts checked today at 7:30 AM. Best match first.</p>
+      </div>
+      <label style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500">Sort by
+        <select style="min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #A9B6C6; background: #FFFFFF; font: inherit; color: #0F1B2D">
+          <option>Best match</option>
+          <option>Newest</option>
+        </select>
+      </label>
+    </div>
+
+    <div role="group" aria-label="Filter matches" style="display: flex; flex-wrap: wrap; gap: 10px">
+      <button type="button" aria-pressed="true" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid #0F1B2D; background: #0F1B2D; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">All 31</button>
+      <button type="button" aria-pressed="false" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid #A9B6C6; background: #FFFFFF; color: #0F1B2D; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer">Strong fit 6</button>
+      <button type="button" aria-pressed="false" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid #A9B6C6; background: #FFFFFF; color: #0F1B2D; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer">Good fit 11</button>
+      <button type="button" aria-pressed="false" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid #A9B6C6; background: #FFFFFF; color: #0F1B2D; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer">Posted this week</button>
+      <button type="button" aria-pressed="false" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid #A9B6C6; background: #FFFFFF; color: #0F1B2D; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer">Full-time</button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+      <ol style="list-style: none; margin: 0; padding: 0; flex: 1 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+        <li>
+          <article aria-labelledby="j1" style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: flex-start">
+              <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                <h2 id="j1" style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.01em">AI Automation Engineer</h2>
+                <p style="margin: 0; font-size: 16px; color: #33415A; font-weight: 500">Northwind Health</p>
+                <p style="margin: 0; font-size: 14px; color: #4E5B6D">Remote: Philippines or Latin America · Full-time · Posted 2 days ago · via Greenhouse</p>
+              </div>
+              <div style="flex: none; display: flex; flex-direction: column; align-items: center; min-width: 104px; padding: 10px 14px; border-radius: 12px; background: #1D5C8C; color: #FFFFFF">
+                <span style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700; line-height: 1">86</span>
+                <span style="font-size: 13px; font-weight: 600; margin-top: 3px">Strong fit</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 14px 32px">
+              <div style="flex: 1 1 300px; min-width: 0">
+                <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1D5C8C">Why it fits</h3>
+                <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.55; display: flex; flex-direction: column; gap: 4px">
+                  <li>Built an invoice workflow in Python and n8n</li>
+                  <li>Built a tool that calls an LLM API and routes 300 emails a day</li>
+                </ul>
+              </div>
+              <div style="flex: 1 1 220px; min-width: 0">
+                <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #A2560C">Gaps</h3>
+                <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.55">
+                  <li>No healthcare experience</li>
+                </ul>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px 12px; padding-top: 14px; border-top: 1px solid #E6EAF0">
+              <a href="#tailor-1" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; background: #F4A62A; color: #0F1B2D; font-weight: 600; font-size: 15px; text-decoration: none">Tailor my resume</a>
+              <a href="#note-1" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1.5px solid #1D5C8C; color: #1D5C8C; font-weight: 600; font-size: 15px; text-decoration: none">Draft a cover note</a>
+              <a href="#open-1" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; color: #1D5C8C; font-weight: 600; font-size: 15px">Open job post<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg></a>
+            </div>
+          </article>
+        </li>
+
+        <li>
+          <article aria-labelledby="j2" style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: flex-start">
+              <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                <h2 id="j2" style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.01em">Solutions Engineer, Workflows</h2>
+                <p style="margin: 0; font-size: 16px; color: #33415A; font-weight: 500">Brightloop</p>
+                <p style="margin: 0; font-size: 14px; color: #4E5B6D">Remote: Asia-Pacific · Full-time · Posted 4 days ago · via Lever</p>
+              </div>
+              <div style="flex: none; display: flex; flex-direction: column; align-items: center; min-width: 104px; padding: 10px 14px; border-radius: 12px; background: #E8F0F7; color: #123E61">
+                <span style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700; line-height: 1">78</span>
+                <span style="font-size: 13px; font-weight: 600; margin-top: 3px">Good fit</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 14px 32px">
+              <div style="flex: 1 1 300px; min-width: 0">
+                <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1D5C8C">Why it fits</h3>
+                <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.55; display: flex; flex-direction: column; gap: 4px">
+                  <li>Set up Zapier and n8n flows for 4 client teams</li>
+                  <li>Wrote setup guides for non-technical users</li>
+                </ul>
+              </div>
+              <div style="flex: 1 1 220px; min-width: 0">
+                <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #A2560C">Gaps</h3>
+                <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.55; display: flex; flex-direction: column; gap: 4px">
+                  <li>Asks for 3+ years in a customer-facing role</li>
+                  <li>Salesforce is not in your resume</li>
+                </ul>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px 12px; padding-top: 14px; border-top: 1px solid #E6EAF0">
+              <a href="#tailor-2" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; background: #F4A62A; color: #0F1B2D; font-weight: 600; font-size: 15px; text-decoration: none">Tailor my resume</a>
+              <a href="#note-2" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1.5px solid #1D5C8C; color: #1D5C8C; font-weight: 600; font-size: 15px; text-decoration: none">Draft a cover note</a>
+              <a href="#open-2" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; color: #1D5C8C; font-weight: 600; font-size: 15px">Open job post<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg></a>
+            </div>
+          </article>
+        </li>
+
+        <li>
+          <article aria-labelledby="j3" style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: flex-start">
+              <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                <h2 id="j3" style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.01em">Implementation Engineer, AI</h2>
+                <p style="margin: 0; font-size: 16px; color: #33415A; font-weight: 500">Fennel Labs</p>
+                <p style="margin: 0; font-size: 14px; color: #4E5B6D">Remote: Worldwide · Contract · Posted 1 week ago · via Ashby</p>
+              </div>
+              <div style="flex: none; display: flex; flex-direction: column; align-items: center; min-width: 104px; padding: 10px 14px; border-radius: 12px; background: #E8F0F7; color: #123E61">
+                <span style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700; line-height: 1">72</span>
+                <span style="font-size: 13px; font-weight: 600; margin-top: 3px">Good fit</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 14px 32px">
+              <div style="flex: 1 1 300px; min-width: 0">
+                <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1D5C8C">Why it fits</h3>
+                <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.55">
+                  <li>Connected an LLM API to a support inbox for a client</li>
+                </ul>
+              </div>
+              <div style="flex: 1 1 220px; min-width: 0">
+                <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #A2560C">Gaps</h3>
+                <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.55">
+                  <li>TypeScript is not in your resume</li>
+                </ul>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px 12px; padding-top: 14px; border-top: 1px solid #E6EAF0">
+              <a href="#tailor-3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; background: #F4A62A; color: #0F1B2D; font-weight: 600; font-size: 15px; text-decoration: none">Tailor my resume</a>
+              <a href="#note-3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1.5px solid #1D5C8C; color: #1D5C8C; font-weight: 600; font-size: 15px; text-decoration: none">Draft a cover note</a>
+              <a href="#open-3" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; color: #1D5C8C; font-weight: 600; font-size: 15px">Open job post<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg></a>
+            </div>
+          </article>
+        </li>
+
+        <li>
+          <article aria-labelledby="j4" style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: flex-start">
+              <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                <h2 id="j4" style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.01em">Automation Developer</h2>
+                <p style="margin: 0; font-size: 16px; color: #33415A; font-weight: 500">Kestrel Freight</p>
+                <p style="margin: 0; font-size: 14px; color: #4E5B6D">Remote: Philippines · Full-time · Posted 5 days ago · via Himalayas</p>
+              </div>
+              <div style="flex: none; display: flex; flex-direction: column; align-items: center; min-width: 104px; padding: 10px 14px; border-radius: 12px; background: #FFF3E0; color: #7A3E00">
+                <span style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700; line-height: 1">61</span>
+                <span style="font-size: 13px; font-weight: 600; margin-top: 3px">Possible fit</span>
+              </div>
+            </div>
+            <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #33415A">Scored by rules only. <a href="#check-4">Ask for a closer check</a></p>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px 12px; padding-top: 14px; border-top: 1px solid #E6EAF0">
+              <a href="#tailor-4" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1.5px solid #1D5C8C; color: #1D5C8C; font-weight: 600; font-size: 15px; text-decoration: none">Tailor my resume</a>
+              <a href="#open-4" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; color: #1D5C8C; font-weight: 600; font-size: 15px">Open job post<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg></a>
+            </div>
+          </article>
+        </li>
+      </ol>
+
+      <aside aria-label="Your search" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section id="resume" style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">Your resume</h2>
+          <p style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; color: #33415A">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D5C8C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
+            sample-resume.pdf
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 15px">
+            <a href="Main.dc.html" style="display: inline-block; padding: 10px 0">Upload a new one</a>
+            <a href="#delete" style="display: inline-block; padding: 10px 0; color: #A3261B">Delete my data</a>
+          </div>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">Roles we search for</h2>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px">
+            <li style="padding: 6px 12px; border-radius: 999px; background: #E8F0F7; color: #123E61; font-size: 14px; font-weight: 500">AI Automation Engineer</li>
+            <li style="padding: 6px 12px; border-radius: 999px; background: #E8F0F7; color: #123E61; font-size: 14px; font-weight: 500">Solutions Engineer</li>
+            <li style="padding: 6px 12px; border-radius: 999px; background: #E8F0F7; color: #123E61; font-size: 14px; font-weight: 500">Implementation Engineer</li>
+            <li style="padding: 6px 12px; border-radius: 999px; background: #E8F0F7; color: #123E61; font-size: 14px; font-weight: 500">Workflow Developer</li>
+          </ul>
+          <a href="#edit-roles" style="font-size: 15px; display: inline-block; padding: 10px 0">Change roles</a>
+        </section>
+
+        <section style="background: #0F1B2D; color: #FFFFFF; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">How we score</h2>
+          <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #C9D4E0">Fixed rules score every job at once: title, skills, years and location. Then we check the top 15 more closely. A tailored resume uses only your own lines.</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <footer style="border-top: 1px solid #DCE2EA; background: #FFFFFF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 24px; font-size: 14px; color: #4E5B6D">
+      <p style="margin: 0">Each job links to its original post. We remove expired jobs. Demo jobs and companies are invented.</p>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

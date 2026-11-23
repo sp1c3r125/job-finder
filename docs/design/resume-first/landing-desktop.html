@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>jobfinder: upload your resume</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F9}
+*{box-sizing:border-box}
+a{color:#1D5C8C}a:hover{color:#123E61}
+</style>
+</helmet>
+<div style="font-family: Inter, system-ui, sans-serif; color: #0F1B2D; background: #F6F7F9; min-height: 100vh">
+
+  <header style="background: #0F1B2D">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px">
+      <a href="#top" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #FFFFFF; min-height: 44px">
+        <svg width="30" height="30" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" fill="#F4A62A"></rect><path d="M8 14.5l4 4 8-9" fill="none" stroke="#0F1B2D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.02em">jobfinder</span>
+      </a>
+      <nav aria-label="Main" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 28px">
+        <a href="#how" style="color: #DDE5EE; text-decoration: none; font-size: 15px; font-weight: 500; padding: 12px 0">How it works</a>
+        <a href="#sample" style="color: #DDE5EE; text-decoration: none; font-size: 15px; font-weight: 500; padding: 12px 0">Sample match</a>
+        <a href="#rules" style="color: #DDE5EE; text-decoration: none; font-size: 15px; font-weight: 500; padding: 12px 0">Our rules</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section aria-labelledby="hero-title" style="background: #0F1B2D; color: #FFFFFF">
+      <div style="max-width: 1200px; margin: 0 auto; padding: 56px 24px 96px; display: flex; flex-wrap: wrap; align-items: center; gap: 48px 64px">
+        <div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+          <p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #F4A62A">Remote AI and automation jobs · open to the Philippines</p>
+          <h1 id="hero-title" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 58px; line-height: 1.04; letter-spacing: -0.03em; font-weight: 700">Skip the search box.<br>Upload your resume.</h1>
+          <p style="margin: 0; font-size: 19px; line-height: 1.6; color: #C9D4E0; max-width: 560px">We read your resume, work out the roles you fit, and check remote job posts every day. You get your matches, why each one fits, what is missing, and a resume tailored to each job.</p>
+          <ul style="list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px">
+            <li style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #1B2A40; color: #E6ECF2; font-size: 14px; font-weight: 500">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#F4A62A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Never applies for you</li>
+            <li style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #1B2A40; color: #E6ECF2; font-size: 14px; font-weight: 500">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#F4A62A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Only facts from your resume</li>
+            <li style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #1B2A40; color: #E6ECF2; font-size: 14px; font-weight: 500">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="#F4A62A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Every job link checked</li>
+          </ul>
+        </div>
+
+        <div style="flex: 1 1 420px; min-width: 0; background: #FFFFFF; color: #0F1B2D; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 24px 60px rgba(4, 12, 24, 0.35)">
+          <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.01em">Start with your resume</h2>
+          <label for="resume-file" style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 36px 20px; border: 2px dashed #8FA6BE; border-radius: 14px; background: #F5F8FB; text-align: center; cursor: pointer">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#1D5C8C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M12 17v-6"></path><path d="M9.5 13.5L12 11l2.5 2.5"></path></svg>
+            <span style="font-size: 20px; font-weight: 600">Drop your resume here</span>
+            <span style="font-size: 15px; color: #5B6779">PDF or DOCX, up to 5 MB</span>
+            <span style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 24px; border-radius: 10px; background: #F4A62A; color: #0F1B2D; font-weight: 600; font-size: 16px">Choose a file</span>
+          </label>
+          <input id="resume-file" type="file" accept=".pdf,.docx" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">
+          <a href="Matching.dc.html" style="display: flex; justify-content: center; align-items: center; min-height: 48px; border-radius: 10px; border: 1.5px solid #1D5C8C; color: #1D5C8C; font-weight: 600; font-size: 16px; text-decoration: none">No resume handy? Try a sample resume</a>
+          <p style="margin: 0; display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: #4E5B6D">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4E5B6D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+            <span>Your resume is used only to find your matches. No account needed to try. Delete it any time.</span>
+          </p>
+          <p style="margin: 0; font-size: 14px; color: #4E5B6D; text-align: center">Prefer to browse? <a href="Results.dc.html">See today's remote AI jobs</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" aria-labelledby="how-title" style="max-width: 1200px; margin: 0 auto; padding: 88px 24px 24px; display: flex; flex-direction: column; gap: 36px">
+      <div style="display: flex; flex-direction: column; gap: 10px; max-width: 640px">
+        <h2 id="how-title" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 38px; letter-spacing: -0.02em; font-weight: 700">How it works</h2>
+        <p style="margin: 0; font-size: 18px; line-height: 1.6; color: #4E5B6D">Job sites ask you to guess the right job title. Your resume already says what you can do.</p>
+      </div>
+      <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 20px">
+        <li style="flex: 1 1 300px; min-width: 0; background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+          <span style="display: inline-flex; width: 40px; height: 40px; border-radius: 10px; background: #0F1B2D; color: #F4A62A; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">1</span>
+          <h3 style="margin: 0; font-size: 20px; font-weight: 600">We read your resume</h3>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #4E5B6D">We copy out your roles, skills and dates. Anything we cannot find word for word in your resume is left out, and we show you what.</p>
+        </li>
+        <li style="flex: 1 1 300px; min-width: 0; background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+          <span style="display: inline-flex; width: 40px; height: 40px; border-radius: 10px; background: #0F1B2D; color: #F4A62A; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">2</span>
+          <h3 style="margin: 0; font-size: 20px; font-weight: 600">We search where jobs are posted</h3>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #4E5B6D">Company job boards and remote job sites, every day. We keep only roles that fit your titles and are open to the Philippines or APAC.</p>
+        </li>
+        <li style="flex: 1 1 300px; min-width: 0; background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+          <span style="display: inline-flex; width: 40px; height: 40px; border-radius: 10px; background: #0F1B2D; color: #F4A62A; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">3</span>
+          <h3 style="margin: 0; font-size: 20px; font-weight: 600">You decide where to apply</h3>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #4E5B6D">Each match shows why it fits and what is missing. Tailor your resume in one click, then apply on the original job page yourself.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section id="sample" aria-labelledby="sample-title" style="max-width: 1200px; margin: 0 auto; padding: 72px 24px 24px; display: flex; flex-direction: column; gap: 28px">
+      <div style="display: flex; flex-direction: column; gap: 10px; max-width: 640px">
+        <h2 id="sample-title" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 38px; letter-spacing: -0.02em; font-weight: 700">What a match looks like</h2>
+        <p style="margin: 0; font-size: 18px; line-height: 1.6; color: #4E5B6D">A sample, made from an invented resume and an invented job.</p>
+      </div>
+      <article aria-labelledby="sample-job" style="background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 22px; max-width: 900px">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px">
+          <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1 1 380px">
+            <h3 id="sample-job" style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em">AI Automation Engineer</h3>
+            <p style="margin: 0; font-size: 16px; color: #33415A; font-weight: 500">Northwind Health</p>
+            <ul style="list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px">
+              <li style="padding: 5px 12px; border-radius: 999px; background: #EEF2F6; font-size: 14px; color: #33415A">Remote: Philippines or Latin America</li>
+              <li style="padding: 5px 12px; border-radius: 999px; background: #EEF2F6; font-size: 14px; color: #33415A">Full-time</li>
+              <li style="padding: 5px 12px; border-radius: 999px; background: #EEF2F6; font-size: 14px; color: #33415A">Posted 2 days ago</li>
+            </ul>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 120px; padding: 14px 18px; border-radius: 14px; background: #1D5C8C; color: #FFFFFF">
+            <span style="font-family: 'Space Grotesk', sans-serif; font-size: 38px; font-weight: 700; line-height: 1">86</span>
+            <span style="font-size: 14px; font-weight: 600; margin-top: 4px">Strong fit</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px 40px">
+          <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+            <h4 style="margin: 0; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1D5C8C">Why it fits</h4>
+            <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 16px; line-height: 1.5; color: #0F1B2D">
+              <li>Built an invoice workflow in Python and n8n that cut manual entry from 6 hours to 1 hour a week</li>
+              <li>Built a tool that calls an LLM API and routes 300 emails a day</li>
+            </ul>
+          </div>
+          <div style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+            <h4 style="margin: 0; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #A2560C">Gaps to work on</h4>
+            <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 16px; line-height: 1.5; color: #0F1B2D">
+              <li>No healthcare experience</li>
+            </ul>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding-top: 6px; border-top: 1px solid #E6EAF0">
+          <a href="Results.dc.html" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 20px; border-radius: 10px; background: #F4A62A; color: #0F1B2D; font-weight: 600; font-size: 16px; text-decoration: none">Tailor my resume</a>
+          <a href="Results.dc.html" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 20px; border-radius: 10px; border: 1.5px solid #1D5C8C; color: #1D5C8C; font-weight: 600; font-size: 16px; text-decoration: none">Draft a cover note</a>
+          <span style="font-size: 14px; color: #5B6779">Via the company's job board</span>
+        </div>
+      </article>
+    </section>
+
+    <section id="rules" aria-labelledby="rules-title" style="max-width: 1200px; margin: 0 auto; padding: 72px 24px 96px; display: flex; flex-direction: column; gap: 28px">
+      <h2 id="rules-title" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 38px; letter-spacing: -0.02em; font-weight: 700">Our rules</h2>
+      <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 20px">
+        <li style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 24px; border-radius: 16px; background: #0F1B2D; color: #FFFFFF">
+          <h3 style="margin: 0; font-size: 19px; font-weight: 600">We never apply for you</h3>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #C9D4E0">Nothing is sent to an employer. You read every draft and apply on the original job page.</p>
+        </li>
+        <li style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 24px; border-radius: 16px; background: #0F1B2D; color: #FFFFFF">
+          <h3 style="margin: 0; font-size: 19px; font-weight: 600">We never add to your experience</h3>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #C9D4E0">A tailored resume puts your own lines in a new order. It does not add skills, numbers or job titles.</p>
+        </li>
+        <li style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 24px; border-radius: 16px; background: #0F1B2D; color: #FFFFFF">
+          <h3 style="margin: 0; font-size: 19px; font-weight: 600">We credit every source</h3>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #C9D4E0">Each match links to the original post and names the site it came from. Expired jobs are removed.</p>
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <footer style="border-top: 1px solid #DCE2EA; background: #FFFFFF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 28px 24px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; font-size: 14px; color: #4E5B6D">
+      <p style="margin: 0">jobfinder is a portfolio project. Demo jobs and companies are invented.</p>
+      <p style="margin: 0"><a href="https://github.com/sp1c3r125/job-finder">Source code on GitHub</a></p>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2250}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
