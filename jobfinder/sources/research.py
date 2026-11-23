@@ -17,7 +17,8 @@ TOOLS = "WebSearch,WebFetch"
 # Job boards whose terms ban bots, scraping or aggregation. A domain stays here until its terms are checked.
 # Each entry matches the domain and every subdomain, never a look-alike name (notjobstreet.com).
 BLOCKED_DOMAINS = ("jobstreet.com", "jobsdb.com", "seek.com.au", "seek.co.nz", "linkedin.com", "indeed.com",
-                   "glassdoor.com", "ziprecruiter.com", "foundit.in", "remote.co", "wellfound.com", "workatastartup.com")
+                   "glassdoor.com", "ziprecruiter.com", "foundit.in", "remote.co", "wellfound.com", "workatastartup.com",
+                   "seek.com", "jobstreet.com.ph", "jobstreet.com.my", "jobstreet.com.sg", "jobstreet.co.id", "lnkd.in")
 MAX_TITLES = 8
 
 _S = {"type": "string"}
@@ -29,11 +30,10 @@ SCHEMA = {"type": "object", "properties": {"results": {"type": "array", "items":
 SYSTEM = """You find real, currently open job postings on the web, using web search and web fetch.
 Find REMOTE postings for the job title given, posted in the last 7 days, that are open to candidates in the
 Philippines, APAC or worldwide. Use the company's own careers page or its applicant-tracking page (Greenhouse,
-Lever, Ashby, Workable and similar). Do not return JobStreet, JobsDB, SEEK, LinkedIn, Indeed, Glassdoor, ZipRecruiter, foundit,
-Wellfound, Work at a Startup or Remote.co links. Open each page you return and confirm it is a live posting for that role.
+Lever, Ashby, Workable and similar). Do not return links on these job boards or their subdomains: {BLOCKED}. Open each page you return and confirm it is a live posting for that role.
 company: the employer. title: the posting's exact title. url: the direct link to the posting.
 posted: the posting date as YYYY-MM-DD, or "" if the page shows none. location: the location text as the posting says it.
-Return only postings you saw on a page. Never guess a URL or a date. Return an empty list if you find none."""
+Return only postings you saw on a page. Never guess a URL or a date. Return an empty list if you find none.""".replace("{BLOCKED}", ", ".join(BLOCKED_DOMAINS))
 
 _LOGIN_PATH = re.compile(r"(?i)/(log-?in|sign-?in|signup|sign-up|sso|auth|oauth)(/|$)")
 

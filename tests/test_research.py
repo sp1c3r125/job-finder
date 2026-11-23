@@ -77,7 +77,10 @@ def test_blocked_domains_are_never_requested(url):
     ("https://ph.jobstreet.com/job/123", True), ("https://boards.greenhouse.io/acme/jobs/1", False),
     ("https://notjobstreet.com/x", False), ("https://jobstreet.com/x", True), ("https://www.seek.com.au/job/1", True),
     ("https://nz.seek.co.nz/job/1", True), ("https://ph.jobsdb.com/job/1", True), ("https://www.ziprecruiter.com/jobs/1", True),
-    ("https://www.foundit.in/job/1", True), ("https://jobstreet.com.evil.example/x", False), ("https://seek.com/x", False)])
+    ("https://www.foundit.in/job/1", True), ("https://jobstreet.com.evil.example/x", False), ("https://employer.seek.com/x", True), ("https://seek.com/x", True),
+    ("https://myseek.com/x", False), ("https://www.jobstreet.com.ph/en/job/1", True), ("https://my.jobstreet.com.my/job/1", True),
+    ("https://sg.jobstreet.com.sg/job/1", True), ("https://id.jobstreet.co.id/job/1", True), ("https://lnkd.in/abc", True),
+    ("https://notlnkd.in/abc", False)])
 def test_blocked_matches_domain_and_subdomains_only(url, is_blocked):
     assert bool(research.blocked(url)) is is_blocked
 
@@ -275,3 +278,7 @@ def test_a_run_where_every_call_failed_is_not_marked_finished(tmp_path, monkeypa
     b = FakeBackend([RuntimeError("claude exited 1")])
     assert run_in(tmp_path, monkeypatch, True, b, FakeGet({})) == 0
     assert sqlite3.connect("t.db").execute("select count(*) from settings where key='research_last_run'").fetchone() == (0,)
+
+
+def test_search_prompt_lists_every_blocked_domain():
+    assert all(d in research.SYSTEM for d in research.BLOCKED_DOMAINS) and "{BLOCKED}" not in research.SYSTEM
