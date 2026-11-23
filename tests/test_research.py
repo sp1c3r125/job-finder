@@ -23,8 +23,9 @@ def posting(**kw):
 
 
 class Resp:
-    def __init__(self, text=PAGE, status=200, url=None):
+    def __init__(self, text=PAGE, status=200, url=None, location=None):
         self.text, self.status_code, self.url = text, status, url
+        self.headers = {"Location": location} if location else {}
 
 
 class FakeGet:
@@ -95,6 +96,34 @@ def test_fetch_counts_and_logs_blocked_results_and_sends_no_request_to_them(logs
     jobs = research.fetch(b, cfg, log, get=get, stats=stats)
     assert [j.url for j in jobs] == [GOOD_URL] and stats["blocked"] == 2 and get.calls == [GOOD_URL]
     assert [f["count"] for e, f in events if e == "research_blocked"] == [2]
+
+
+def test_redirect_to_blocked_domain_is_not_requested():
+    get = FakeGet({GOOD_URL: Resp(status=302, location="https://www.linkedin.com/jobs/1")})
+    text, why = research.check_link(posting(), get)
+    assert (text, why) == ("", "redirects to blocked domain linkedin.com") and get.calls == [GOOD_URL]
+
+
+def test_redirects_between_allowed_hosts_are_followed_by_hand():
+    u = [f"https://h{i}.example.com/p" for i in range(4)]
+    get = FakeGet({GOOD_URL: Resp(status=301, location=u[0]), u[0]: Resp(status=302, location="/next"),
+                   "https://h0.example.com/next": Resp(status=307, location=u[2]), u[2]: Resp()})
+    text, why = research.check_link(posting(), get)
+    assert why == "" and "Build LLM agents" in text and len(get.calls) == 4
+
+
+def test_too_many_redirects_are_dropped():
+    pages = {GOOD_URL: Resp(status=302, location="https://h1.example.com/")}
+    pages.update({f"https://h{i}.example.com/": Resp(status=302, location=f"https://h{i + 1}.example.com/") for i in range(1, 7)})
+    get = FakeGet(pages)
+    assert research.check_link(posting(), get) == ("", "too many redirects") and len(get.calls) == 6
+
+
+def test_five_redirects_are_still_allowed():
+    pages = {GOOD_URL: Resp(status=302, location="https://h1.example.com/")}
+    pages.update({f"https://h{i}.example.com/": Resp(status=302, location=f"https://h{i + 1}.example.com/") for i in range(1, 5)})
+    pages["https://h5.example.com/"] = Resp()
+    assert research.check_link(posting(), FakeGet(pages))[1] == ""
 
 
 def test_lookalike_domain_is_not_blocked():

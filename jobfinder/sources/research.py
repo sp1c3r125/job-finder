@@ -5,7 +5,7 @@ not be an aggregator. Failures are dropped and logged."""
 import json
 import re
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -20,6 +20,8 @@ BLOCKED_DOMAINS = ("jobstreet.com", "jobsdb.com", "seek.com.au", "seek.co.nz", "
                    "glassdoor.com", "ziprecruiter.com", "foundit.in", "remote.co", "wellfound.com", "workatastartup.com",
                    "seek.com", "jobstreet.com.ph", "jobstreet.com.my", "jobstreet.com.sg", "jobstreet.co.id", "lnkd.in")
 MAX_TITLES = 8
+MAX_REDIRECTS = 5
+_REDIRECT = (301, 302, 303, 307, 308)
 
 _S = {"type": "string"}
 _POSTING = {"type": "object", "properties": {"company": _S, "title": _S, "url": _S, "posted": _S, "location": _S},
@@ -44,7 +46,8 @@ def blocked(url):
 
 
 def default_get(url, user_agent):
-    return requests.get(url, headers={"User-Agent": user_agent}, timeout=30, allow_redirects=True)
+    """One request, no redirects: check_page follows them by hand so a blocked host is never contacted."""
+    return requests.get(url, headers={"User-Agent": user_agent}, timeout=30, allow_redirects=False)
 
 
 _LDJSON = re.compile(r"(?is)<script[^>]+type=[\"']?application/ld\+json[\"']?[^>]*>(.*?)</script>")
@@ -90,11 +93,24 @@ def check_page(result, get):
     d = blocked(url)
     if d:
         return none, f"blocked domain {d}"
-    try:
-        resp = get(url)
-    except Exception as e:  # noqa: BLE001
-        return none, f"request failed: {type(e).__name__}"
-    final = str(getattr(resp, "url", url) or url)
+    cur = url
+    for hop in range(MAX_REDIRECTS + 1):
+        try:
+            resp = get(cur)
+        except Exception as e:  # noqa: BLE001
+            return none, f"request failed: {type(e).__name__}"
+        loc = (getattr(resp, "headers", None) or {}).get("Location")
+        if resp.status_code not in _REDIRECT or not loc:
+            break
+        if hop == MAX_REDIRECTS:
+            return none, "too many redirects"
+        cur = urljoin(cur, loc)
+        d = blocked(cur)
+        if d:                                                          # checked before the hop: no request is sent
+            return none, f"redirects to blocked domain {d}"
+        if urlparse(cur).scheme not in ("http", "https"):
+            return none, "redirects to a non-http link"
+    final = str(getattr(resp, "url", cur) or cur)
     d = blocked(final)
     if d:
         return none, f"redirects to blocked domain {d}"

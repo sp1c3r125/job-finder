@@ -86,6 +86,6 @@ Recorded decisions. Do not reopen without new evidence.
 
 ## Research: blocked job boards
 - JobStreet/JobsDB/SEEK: not a source. Terms 7(d) and 9(b) ban bots and scraping. The SEEK API is for posting jobs only. Revisit only with written consent from SEEK. A blocked domain stays blocked until its terms are checked.
-- `BLOCKED_DOMAINS` in `jobfinder/sources/research.py`: jobstreet.com, jobsdb.com, seek.com.au, seek.co.nz, linkedin.com, indeed.com, glassdoor.com, ziprecruiter.com, foundit.in, remote.co,
-  and the two that were already blocked (wellfound.com, workatastartup.com). Each matches the domain and every subdomain, not look-alikes.
+- The list is BLOCKED_DOMAINS in jobfinder/sources/research.py (the only copy). Each entry matches the domain and every subdomain, not look-alikes.
   A blocked result is dropped before the link check, so no request goes to it. The count per run is logged as `research_blocked`.
+  Redirects are followed by hand (5 hops at most); a hop to a blocked domain stops before the request is sent.
