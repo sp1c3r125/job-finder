@@ -232,7 +232,7 @@ def test_run_research_results_are_prefiltered_and_scored(tmp_path, monkeypatch, 
     assert b.tools[0] == research.TOOLS and b.tools[1:] == [None]          # scoring has no tools; no cover note is drafted by the run
     import sqlite3
     con = sqlite3.connect("t.db")
-    assert con.execute("select source, url, passed from jobs where passed=1").fetchall() == [("research", GOOD_URL, 1)]
+    assert con.execute("select j.source, j.url, u.passed from jobs j join user_jobs u on u.source=j.source and u.source_id=j.source_id where u.passed=1").fetchall() == [("research", GOOD_URL, 1)]
     assert con.execute("select count(*) from job_scores where score_json is not null").fetchone()[0] == 1
     assert not Path("drafts").exists() or not list(Path("drafts").glob("*.md"))
 
@@ -263,7 +263,7 @@ def test_run_keeps_an_undated_result_but_still_rejects_an_old_dated_one(tmp_path
     b = FakeBackend([{"results": results}, GOOD])
     assert run_in(tmp_path, monkeypatch, True, b, FakeGet(pages)) == 0
     con = sqlite3.connect("t.db")
-    assert con.execute("select url, passed, undated from jobs order by url").fetchall() == [
+    assert con.execute("select j.url, u.passed, j.undated from jobs j join user_jobs u on u.source=j.source and u.source_id=j.source_id order by j.url").fetchall() == [
         ("https://acme.com/old", 0, 0), (GOOD_URL, 1, 1)]
     row = report.rows(db.connect("t.db"))[0]
     assert row["posted"] == "date not shown" and row["score"] == GOOD["fit_score"]
@@ -276,7 +276,7 @@ def test_requalify_updates_a_saved_job(tmp_path):
     job.posted = ""
     db.save(con, job, "2026-11-22T00:00:00+00:00", False, "no posted date")
     db.requalify(con, job, "2026-11-22T00:00:00+00:00", True, True, "philippines")
-    assert con.execute("select posted, undated, passed, rule from jobs").fetchone() == (
+    assert con.execute("select j.posted, j.undated, u.passed, u.rule from jobs j join user_jobs u on u.source=j.source and u.source_id=j.source_id").fetchone() == (
         "2026-11-22T00:00:00+00:00", 1, 1, "philippines")
 
 
