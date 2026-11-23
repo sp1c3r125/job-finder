@@ -17,12 +17,16 @@
       <button type="submit">{{ "Turn kill switch off" if kill else "Turn kill switch on" }}</button>
     </form>
   </div>
+</section>{% endif %}
+{% if not demo %}
+<details class="setup"{% if not resume %} open{% endif %}>
+  <summary>{% if resume %}Resume and search profile: {{ resume.file }} · read {{ when(resume.read_iso, False) }} · {{ resume.skills }} skill{{ "" if resume.skills == 1 else "s" }}{% else %}Resume and search profile: no resume yet, import one{% endif %}</summary>
   <section class="resume-panel" aria-labelledby="resume-h">
-    <h3 id="resume-h">Your resume</h3>
+    <h2 id="resume-h">Your resume</h2>
     {% if resume %}
     <dl>
       <dt>File</dt><dd>{{ resume.file }}</dd>
-      <dt>Read</dt><dd>{{ resume.read }}</dd>
+      <dt>Read</dt><dd>{{ when(resume.read_iso) }}</dd>
       <dt>Name</dt><dd>{{ resume.name }}</dd>
       <dt>Roles</dt><dd>{{ resume.roles }}</dd>
       <dt>Skills</dt><dd>{{ resume.skills }}</dd>
@@ -34,7 +38,7 @@
     {% else %}<p>No resume yet.</p>{% endif %}
   </section>
   <section class="resume-panel" aria-labelledby="target-h">
-    <h3 id="target-h">Search profile</h3>
+    <h2 id="target-h">Search profile</h2>
     {% if target %}
     <dl>
       <dt>Target titles</dt><dd>{{ target.titles|join(", ") }}</dd>
@@ -46,21 +50,23 @@
     {% else %}<p>No search profile yet. Run <code>python -m jobfinder make-target</code> or import a resume.</p>{% endif %}
   </section>
   <form action="/upload" method="post" enctype="multipart/form-data" aria-labelledby="upload-h" class="upload">
-    <h3 id="upload-h">Import a resume</h3>
+    <h2 id="upload-h">Import a resume</h2>
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
     <label for="resume-file">Resume file (PDF, DOCX, TXT or MD, up to 5 MB)</label>
     <input type="file" id="resume-file" name="file" accept=".pdf,.docx,.txt,.md" required>
     <button type="submit">Upload and read resume</button>
   </form>
-</section>{% endif %}
+</details>
+{% endif %}
 {% if rows %}
+<div class="table-container">
 <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="jobs-caption">
   <table>
     <caption id="jobs-caption">Scored jobs, sorted by fit score</caption>
     <thead>
       <tr>
         <th scope="col">Score</th><th scope="col">Company</th><th scope="col">Title</th>
-        <th scope="col">Source</th><th scope="col">Posted</th><th scope="col">Location rule</th>
+        <th scope="col">Source</th><th scope="col">Posted</th>
         {% if not demo %}<th scope="col">Draft</th><th scope="col">Resume</th>{% endif %}
       </tr>
     </thead>
@@ -71,14 +77,14 @@
         <th scope="row" data-label="Company">{{ r.company }}</th>
         <td data-label="Title"><a href="/job/{{ r.source_key }}/{{ r.source_id|urlencode }}">{{ r.title }}</a></td>
         <td data-label="Source">{{ r.sources }}{% include "_credit.html" %}</td>
-        <td data-label="Posted">{{ r.posted }}</td>
-        <td data-label="Location rule">{{ r.rule }}</td>
-        {% if not demo %}<td data-label="Draft">{% if r.draft %}<a href="/files/{{ r.draft|fileurl }}">Open</a>{% else %}None{% endif %}</td>
-        <td data-label="Resume">{% if r.resume %}<a href="/files/{{ r.resume|fileurl }}">Open</a>{% else %}None{% endif %}</td>{% endif %}
+        <td data-label="Posted">{% if r.posted_iso %}{{ when(r.posted_iso, False) }}{% else %}{{ r.posted }}{% endif %}</td>
+        {% if not demo %}<td data-label="Draft">{% if r.draft %}<a href="/files/{{ r.draft|fileurl }}">Open</a>{% else %}—{% endif %}</td>
+        <td data-label="Resume">{% if r.resume %}<a href="/files/{{ r.resume|fileurl }}">Open</a>{% else %}—{% endif %}</td>{% endif %}
       </tr>
     {% endfor %}
     </tbody>
   </table>
+</div>
 </div>
 {% else %}
 <p>No scored jobs yet. Run <code>python -m jobfinder</code> and reload.</p>

@@ -16,12 +16,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from markupsafe import Markup
+
 from . import db, report
 from . import demo as demo_mod
 from . import resume as resume_mod
 from . import target as target_mod
 from .drafts import draft_note, write_draft
 from .guard import CappedBackend, default_cap, killed
+from .localtime import load_zone, time_html
 from .log import make_logger
 from .resume_docx import write_tailored
 from .runner import Runner
@@ -83,6 +86,8 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     templates = Jinja2Templates(directory=HERE / "templates")
     templates.env.filters["fileurl"] = lambda p: str(p).replace(chr(92), "/")
+    zone = load_zone(base / "profile.yaml")                 # times are shown in this zone (UTC+8 in profile.yaml)
+    templates.env.globals["when"] = lambda iso, with_time=True: Markup(time_html(iso, zone, with_time))
 
     def capped():
         from .backends import get_backend
@@ -104,7 +109,7 @@ def create_app(db_path=None, cfg=None, base_dir=None, backend=None, run_pipeline
         read = res.get("imported_at")
         if not read:
             read = datetime.fromtimestamp(os.path.getmtime(resume_json), timezone.utc).isoformat(timespec="seconds")
-        return {"file": res.get("source_file") or "unknown", "read": read.replace("T", " ").replace("+00:00", " UTC"),
+        return {"file": res.get("source_file") or "unknown", "read_iso": read,
                 "name": res.get("name") or "not found", "roles": len(res.get("roles", [])),
                 "skills": len(res.get("skills", [])), "keywords": ", ".join(res.get("search_keywords", [])),
                 "left_out": res.get("left_out")}

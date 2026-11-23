@@ -84,8 +84,35 @@ Recorded decisions. Do not reopen without new evidence.
 - Weights (title 40, skills 30, years 15, location 15) and `rule_min` were kept after calibration (`python -m jobfinder calibrate`).
   Only 2 saved jobs scored 70 or more, so tuning further would overfit.
 
+
 ## Research: blocked job boards
 - JobStreet/JobsDB/SEEK: not a source. Terms 7(d) and 9(b) ban bots and scraping. The SEEK API is for posting jobs only. Revisit only with written consent from SEEK. A blocked domain stays blocked until its terms are checked.
 - The list is BLOCKED_DOMAINS in jobfinder/sources/research.py (the only copy). Each entry matches the domain and every subdomain, not look-alikes.
   A blocked result is dropped before the link check, so no request goes to it. The count per run is logged as `research_blocked`.
   Redirects are followed by hand (5 hops at most); a hop to a blocked domain stops before the request is sent.
+
+## UI layout fixes (2026-11-23)
+- Baseline: Baseline Widely available (current Chrome, Edge, Firefox, Safari incl. iOS Safari). No JavaScript, no new dependencies, existing CSS tokens only.
+  An external audit (axe-core, 390 and 1280 px, light and dark) found 0 accessibility violations; these are layout fixes.
+- Guides used: `size-aware-styling`, `css-layout`, `form-factor-adaptation`, `html`, `search-hidden-content`, `responsive-table`, `coordinate-global-events` (read, not applied; see below).
+  `legacy-scan` on `jobfinder/templates` and `jobfinder/static`: 0 findings before and after.
+- Changed:
+  1. Resume and Search profile `<dl>`: each panel is an inline-size container. Narrow: label above value. Wide (32rem or more): two columns, `minmax(0, 1fr)` for values.
+     Values wrap with `overflow-wrap: break-word`, not `anywhere`, so ordinary words are no longer split.
+  2. Resume, Search profile and Import a resume are in one `<details class="setup">`, closed, after the jobs table (Actions, then table, then details).
+     Summary: file name, read date, skill count. The sub-headings are `h2`. The summary has no heading or link inside it, and keeps its default triangle.
+  3. Matching evidence, Gaps and Deal-breakers are `<ul>` lists (`report.row_from` adds `*_list` fields; the joined strings stay for the xlsx and dashboard.html).
+  4. The two job-page buttons share one `.actions` flex row with `gap` and `flex-wrap`. `flex-wrap: balance` is layered on; unsupported browsers ignore it and wrap normally.
+  5. Rule-score pages hide Summary (it was a fixed placeholder sentence), Matching evidence, Gaps and Deal-breakers when empty. Model-scored pages keep all four with "None listed."
+  6. Jobs table: "—" for no draft/resume (link when a file exists). The Location rule column is gone; the rule is on the job page.
+  7. Times use `timezone:` from profile.yaml (UTC+8), in `<time datetime="...+08:00">`. A missing key or file means UTC. New module `jobfinder/localtime.py`.
+     The resume read time shows as `2026-11-23 04:00 UTC+8`; the table shows posted dates only; the job page shows date and time.
+- Skipped:
+  - Temporal API (`coordinate-global-events`): it needs client JavaScript and is not Baseline (no Safari). Times are formatted on the server instead.
+  - `details::details-content` and `name=` grouping: nothing to animate or exclude.
+  - `hidden="until-found"`: `<details>` is preferred by the guide and Baseline.
+  - Location rule stays in xlsx and dashboard.html (they are not the web UI).
+- Follow-ups after the browser check (same day): the setup `<details>` has `open` when there is no resume.json, so the upload form shows on first use,
+  and sits after Actions, above the jobs table. In the stacked table layout the wrapper drops `overflow` and `max-block-size`, so a phone page scrolls normally.
+  A container query cannot style its own container, so `container-type` moved to a new `.table-container` div around `.table-wrapper`. Guides: `html`, `search-hidden-content`, `responsive-table`, `size-aware-styling`. `legacy-scan`: 0 findings.
+
