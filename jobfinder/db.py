@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 class Connection(sqlite3.Connection):
     """A SQLite connection that knows whose rows it may touch."""
     user_id = LOCAL_USER
+    dialect = "sqlite"
 
 
 def _uid(con):
@@ -326,9 +327,113 @@ def set_setting(con, key, value):
 def model_scored(con):
     """[(Job, fit_score)] for every job the model scored (any age). Used to calibrate the rule score."""
     out = []
+    fit = "(s.score_json::json->>'fit_score')::float" if _dialect(con) == "postgres" else "json_extract(s.score_json,'$.fit_score')"
     for r in con.execute("SELECT j.source,j.source_id,j.company,j.title,j.url,j.posted,j.location,j.remote,j.description,"
-                         "j.expires,json_extract(s.score_json,'$.fit_score') FROM jobs j JOIN job_scores s "
+                         f"j.expires,{fit} FROM jobs j JOIN job_scores s "
                          "ON s.source=j.source AND s.source_id=j.source_id AND s.user_id=? WHERE s.score_json IS NOT NULL",
                          (_uid(con),)).fetchall():
         out.append((Job(*r[:7], None if r[7] is None else bool(r[7]), r[8], expires=r[9] or ""), r[10]))
     return out
+
+
+# ---- Postgres (hosted mode) ----------------------------------------------------------------------------------------------
+# Same functions, same SQL (the `?` placeholders are translated). Users are separated by row-level security: the app
+# connects as `jobfinder_app` (no BYPASSRLS, not the table owner) and every transaction starts with
+# set_config('app.user_id', <id>, true). Never the Supabase service role for a user request.
+APP_ROLE = "jobfinder_app"
+WORKER_ROLE = "jobfinder_worker"
+PER_USER_TABLES = ("user_jobs", "job_scores", "usage", "settings")     # every table that holds one user's rows
+_OWN_ROW = "user_id = nullif(current_setting('app.user_id', true), '')::uuid"
+
+_PG_V1 = [
+    f"""DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{APP_ROLE}') THEN CREATE ROLE {APP_ROLE} NOLOGIN NOBYPASSRLS; END IF;
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{WORKER_ROLE}') THEN CREATE ROLE {WORKER_ROLE} NOLOGIN NOBYPASSRLS; END IF;
+    END $$""",
+    """CREATE TABLE jobs (
+      source TEXT, source_id TEXT, company TEXT, title TEXT, url TEXT, posted TEXT,
+      location TEXT, remote INTEGER, description TEXT, also_seen_on TEXT DEFAULT '[]',
+      first_seen TEXT, norm_key TEXT, expires TEXT DEFAULT '', undated INTEGER DEFAULT 0,
+      PRIMARY KEY (source, source_id))""",
+    """CREATE TABLE user_jobs (user_id UUID NOT NULL, source TEXT, source_id TEXT, passed INTEGER, rule TEXT,
+      rule_score INTEGER, rule_json TEXT, PRIMARY KEY (user_id, source, source_id))""",
+    """CREATE TABLE job_scores (user_id UUID NOT NULL, source TEXT, source_id TEXT, score_json TEXT, draft_path TEXT,
+      resume_path TEXT, scored_at TEXT, PRIMARY KEY (user_id, source, source_id))""",
+    "CREATE TABLE usage (user_id UUID NOT NULL, day TEXT, ts TEXT, kind TEXT, note TEXT)",
+    "CREATE INDEX usage_user_day ON usage (user_id, day)",
+    "CREATE TABLE settings (user_id UUID NOT NULL, key TEXT, value TEXT, PRIMARY KEY (user_id, key))",
+    f"GRANT USAGE ON SCHEMA public TO {APP_ROLE}, {WORKER_ROLE}",
+    f"GRANT SELECT ON jobs TO {APP_ROLE}",                                   # a user request cannot change the catalogue
+    f"GRANT SELECT, INSERT, UPDATE, DELETE ON jobs TO {WORKER_ROLE}",
+] + [stmt for t in PER_USER_TABLES for stmt in (
+    f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY",
+    f"ALTER TABLE {t} FORCE ROW LEVEL SECURITY",
+    f"CREATE POLICY own_rows ON {t} FOR ALL TO {APP_ROLE}, {WORKER_ROLE} USING ({_OWN_ROW}) WITH CHECK ({_OWN_ROW})",
+    f"GRANT SELECT, INSERT, UPDATE, DELETE ON {t} TO {APP_ROLE}, {WORKER_ROLE}")]
+PG_MIGRATIONS = [(1, _PG_V1)]
+
+
+def migrate_pg(admin_url):
+    """Create or update the Postgres schema. Run with the owner role (deploy step), never with the app role."""
+    import psycopg
+    with psycopg.connect(admin_url) as con:
+        con.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at TEXT)")
+        have = con.execute("SELECT COALESCE(MAX(version), 0) FROM schema_version").fetchone()[0]
+        for version, statements in PG_MIGRATIONS:
+            if version > have:
+                for stmt in statements:                              # one transaction: the `with` commits or rolls back
+                    con.execute(stmt)
+                con.execute("INSERT INTO schema_version VALUES (%s, %s)", (version, datetime.now(timezone.utc).isoformat()))
+        return max([have] + [v for v, _ in PG_MIGRATIONS])
+
+
+def set_pg_role_login(admin_url, role, password):
+    """Let a role log in (deploy step). The password comes from the secret store."""
+    import psycopg
+    from psycopg import sql
+    if role not in (APP_ROLE, WORKER_ROLE):
+        raise ValueError(role)
+    with psycopg.connect(admin_url) as con:
+        con.execute(sql.SQL("ALTER ROLE {} LOGIN PASSWORD {}").format(sql.Identifier(role), sql.Literal(password)))
+
+
+_PG_CLASS = None
+
+
+def _pg_class():
+    global _PG_CLASS
+    if _PG_CLASS is None:
+        import psycopg
+        from psycopg import pq
+
+        class PgConnection(psycopg.Connection):
+            """Looks like the SQLite connection to db.py: `?` placeholders, executemany, a user_id."""
+            dialect = "postgres"
+            user_id = None
+
+            def execute(self, query, params=None, **kw):
+                if self.info.transaction_status == pq.TransactionStatus.IDLE:   # a new transaction: say whose rows it may see
+                    super().execute("SELECT set_config('app.user_id', %s, true)", (str(self.user_id),))
+                return super().execute(query.replace("?", "%s"), params, **kw)
+
+            def executemany(self, query, seq):
+                cur = self.cursor()
+                if self.info.transaction_status == pq.TransactionStatus.IDLE:
+                    super().execute("SELECT set_config('app.user_id', %s, true)", (str(self.user_id),))
+                cur.executemany(query.replace("?", "%s"), list(seq))
+                return cur
+        _PG_CLASS = PgConnection
+    return _PG_CLASS
+
+
+def connect_pg(url, user_id):
+    """A connection for one signed-in user. `url` must use the app (or worker) role, never the owner or a service role."""
+    import uuid
+    user_id = str(uuid.UUID(str(user_id)))                          # refuses anything that is not a uuid
+    con = _pg_class().connect(url)
+    con.user_id = user_id
+    return con
+
+
+def _dialect(con):
+    return getattr(con, "dialect", "sqlite")

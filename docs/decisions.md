@@ -170,3 +170,20 @@ Not built. Each waits for its trigger.
 - Checked on a copy of the real jobs.db: the same 138 listed jobs before and after (hash of the rows equal), 5068 jobs and 136 scores kept.
 - Test changes: 3 assertions in tests/test_research.py read `jobs.passed`/`rule`; they now join `user_jobs`. Expected values are unchanged.
   New: tests/test_db_users.py (migration on invented old DBs, backup, rollback, two-user separation).
+
+## M4 P2: Postgres, row-level security, isolation test (2026-11-23)
+- Hosted data lives in Postgres (Supabase later). `db.connect_pg(url, user_id)` returns a connection with the same `db.py` functions (`?` placeholders
+  are translated; the one SQLite-only expression, `json_extract`, has a Postgres twin). Schema: `PG_MIGRATIONS` in `db.py`, `migrate_pg(admin_url)`
+  is a deploy step run by the owner role. Columns match SQLite (tested), except the unused legacy `jobs` columns.
+- Isolation: the app connects as `jobfinder_app`, the worker as `jobfinder_worker`. Both are NOBYPASSRLS, not superuser and not table owners.
+  Every per-user table (`PER_USER_TABLES`: user_jobs, job_scores, usage, settings) has RLS enabled and forced, and one policy
+  `user_id = current_setting('app.user_id')::uuid` for reads and writes. Each transaction starts with `set_config('app.user_id', id, true)`;
+  a connection with no user set sees nothing. `user_id` is a plain uuid (no foreign key to `auth.users`), so CI runs on stock Postgres.
+- The app role can only read the shared `jobs` catalogue; only the worker role writes it. Neither role can read `schema_version`.
+- Tests (`tests/test_isolation.py`, run when `TEST_DATABASE_URL` is set): A cannot read, change, delete or insert B's rows, through the app
+  functions and through the database role, in every per-user table; a structural test fails if any table with a `user_id` lacks RLS, FORCE or a policy;
+  the isolation check itself is tested by breaking protection (drop the policy, open it to everyone, disable RLS) on each table: 12 cases, all caught.
+- CI: new Linux job `isolation` with a `postgres:16` service container. The windows job is unchanged; these tests skip there.
+- New dependency: `psycopg[binary]` (Postgres driver). Not used in local mode unless hosted code runs.
+- Owner step: create the Supabase staging project (Singapore). Put the owner connection string in your secret store; the deploy step runs
+  `migrate_pg` with it, then `set_pg_role_login` for the two roles. Turn off the Supabase Data API for the `public` schema (the app does not use it).
