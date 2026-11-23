@@ -156,3 +156,17 @@ Not built. Each waits for its trigger.
 - Even with every setting present, `create_app` refuses to serve in hosted mode until sign-in exists (P3): the local app has no login.
 - Changes to the plan found in the code: per-user job state moves to a `user_jobs` table (P1); research stays off in hosted v1;
   RLS uses its own non-bypass role, not the Supabase service role. See the approved plan.
+
+## M4 P1: user_id in the schema (2026-11-23)
+- `jobs` stays the shared catalogue. New `user_jobs(user_id, source, source_id, passed, rule, rule_score, rule_json)` holds what depends on one
+  user's profile (the plan's change A: "one new column" was not enough, because `passed` and the rule score are per user).
+  `job_scores`, `usage` and `settings` got `user_id` (primary keys now start with it). Local mode is user `local`.
+- `db.connect(path, user_id="local")` returns a connection that carries the user id; every function in `db.py` reads and writes only that user's rows.
+  No caller changed. `is_seen` and `merge_duplicate` stay catalogue-wide.
+- Numbered migrations in `db.py` (not `.sql` files: all SQL stays in `db.py`), recorded in `schema_version`. Each runs in one transaction.
+  Migration 1 is the old in-place fixes; migration 2 adds user_id. Before migration 2 runs on a database that has data, `<db>.bak-v2` is written once
+  (SQLite backup API; `*.db.bak-*` is git-ignored).
+- The old `jobs.passed/rule/rule_score/rule_json` columns are copied to `user_jobs` and left in place, unused. Nothing is dropped.
+- Checked on a copy of the real jobs.db: the same 138 listed jobs before and after (hash of the rows equal), 5068 jobs and 136 scores kept.
+- Test changes: 3 assertions in tests/test_research.py read `jobs.passed`/`rule`; they now join `user_jobs`. Expected values are unchanged.
+  New: tests/test_db_users.py (migration on invented old DBs, backup, rollback, two-user separation).
